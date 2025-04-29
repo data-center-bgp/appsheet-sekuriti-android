@@ -2,8 +2,14 @@ import { View, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { Text, Card, Button } from "@rneui/themed";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RootStackScreenProps } from "../types/navigation";
 
-export default function Homepage({ session }: { session: Session }) {
+type Props = RootStackScreenProps<"Home">;
+
+export default function Homepage({ route, navigation }: Props) {
+  const { session } = route.params;
   const signOut = async () => {
     await supabase.auth.signOut();
   };
@@ -25,13 +31,15 @@ export default function Homepage({ session }: { session: Session }) {
             <Card.Title>Quick Actions</Card.Title>
             <Card.Divider />
             <Button
-              title="Lihat Profil"
+              title="Pengaturan"
               type="outline"
+              onPress={() => navigation.navigate("Account", { session })}
               containerStyle={styles.buttonContainer}
             />
             <Button
-              title="Pengaturan"
+              title="Barang Masuk"
               type="outline"
+              onPress={() => navigation.navigate("BarangMasukList")}
               containerStyle={styles.buttonContainer}
             />
             <Button

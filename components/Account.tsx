@@ -3,8 +3,13 @@ import { supabase } from "../lib/supabase";
 import { StyleSheet, View, Alert, Text } from "react-native";
 import { Button, Input } from "@rneui/themed";
 import { Session } from "@supabase/supabase-js";
+import { RootStackScreenProps } from "../types/navigation";
 
-export default function Account({ session }: { session: Session }) {
+type Props = RootStackScreenProps<"Account">;
+
+export default function Account({ route, navigation }: Props) {
+  const { session } = route.params;
+
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("");
   const [website, setWebsite] = useState("");
