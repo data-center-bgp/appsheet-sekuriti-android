@@ -43,6 +43,12 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
           <Text>Loading...</Text>
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
+        ) : barangMasuk.length === 0 ? (
+          <Card containerStyle={styles.card}>
+            <Text style={styles.errorText}>
+              Belum ada data yang dimasukkan!
+            </Text>
+          </Card>
         ) : (
           <Card containerStyle={styles.card}>
             {barangMasuk.map((item, index) => (
@@ -83,5 +89,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: "red",
     textAlign: "center",
+    padding: 4,
+    fontSize: 16,
   },
 });
