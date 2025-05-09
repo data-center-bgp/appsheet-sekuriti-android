@@ -5,8 +5,7 @@ export type RootStackParamList = {
   Home: { session: Session };
   Account: { session: Session };
   BarangMasukList: undefined;
-  BarangMasukCreate: undefined;
-  Auth: undefined;
+  BarangMasukCreate: { editData?: any } | undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =

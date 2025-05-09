@@ -9,6 +9,7 @@ import { Session } from "@supabase/supabase-js";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { RootStackParamList } from "./types/navigation";
+import BarangMasukCreate from "./components/BarangMasukCreate";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -44,6 +45,11 @@ export default function App() {
               name="BarangMasukList"
               component={BarangMasukList}
               options={{ title: "Daftar Barang Masuk" }}
+            />
+            <Stack.Screen
+              name="BarangMasukCreate"
+              component={BarangMasukCreate}
+              options={{ title: "Tambah Data Barang Masuk" }}
             />
           </Stack.Navigator>
         ) : (
