@@ -9,38 +9,37 @@ import { Text, Card, Button, ListItem, Icon } from "@rneui/themed";
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
-export default function BarangMasukList({ navigation }: { navigation: any }) {
-  const [barangMasuk, setBarangMasuk] = useState<any[]>([]);
+export default function BarangKeluarList({ navigation }: { navigation: any }) {
+  const [barangKeluar, setBarangKeluar] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchBarangMasuk();
+    fetchBarangKeluar();
     const unsubscribe = navigation.addListener("focus", () => {
-      fetchBarangMasuk();
+      fetchBarangKeluar();
     });
     return unsubscribe;
   }, [navigation]);
 
-  async function fetchBarangMasuk() {
+  async function fetchBarangKeluar() {
     try {
       setLoading(true);
-      let { data: barang_masuk, error } = await supabase
-        .from("barang_masuk")
+      let { data: barang_keluar, error } = await supabase
+        .from("barang_keluar")
         .select(
-          "id, ID, nomor_do, tanggal, jam, nama_pembawa_barang, nama_pemilik_barang, keterangan, sekuriti, pos, file_pdf"
+          "id, ID, nomor_do, tanggal, jam, kurir, nama_pemilik_barang, tujuan, keterangan, sekuriti, pos, file_pdf"
         )
         .order("created_at", { ascending: false });
-
       if (error) throw error;
-      if (barang_masuk) {
-        console.log("Fetched barang masuk:", barang_masuk);
-        setBarangMasuk(barang_masuk);
+      if (barang_keluar) {
+        console.log("Fetched barang keluar:", barang_keluar);
+        setBarangKeluar(barang_keluar);
       }
     } catch (error: any) {
       setError(error.message);
-      console.error("Error fetching barang masuk:", error.message);
+      console.error("Error fetching barang keluar:", error.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -49,7 +48,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    fetchBarangMasuk();
+    fetchBarangKeluar();
   };
 
   return (
@@ -72,7 +71,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
           <Text style={styles.loadingText}>Loading...</Text>
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
-        ) : barangMasuk.length === 0 ? (
+        ) : barangKeluar.length === 0 ? (
           <Card containerStyle={styles.card}>
             <Text style={styles.errorText}>
               Belum ada data yang dimasukkan!
@@ -80,7 +79,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
           </Card>
         ) : (
           <Card containerStyle={styles.card}>
-            {barangMasuk.map((item) => (
+            {barangKeluar.map((item) => (
               <ListItem key={item.id} bottomDivider>
                 <ListItem.Content>
                   <View style={styles.titleContainer}>
@@ -97,8 +96,9 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
                   <View style={styles.previewContent}>
                     <Text>ID: {item.ID || "-"}</Text>
                     <Text>Nomor DO: {item.nomor_do || "-"}</Text>
-                    <Text>Pembawa: {item.nama_pembawa_barang || "-"}</Text>
+                    <Text>Pembawa: {item.kurir || "-"}</Text>
                     <Text>Pemilik: {item.nama_pemilik_barang || "-"}</Text>
+                    <Text>Tujuan: {item.tujuan || "-"}</Text>
                     <Text>Keterangan: {item.keterangan || "-"}</Text>
                     <Text>Sekuriti: {item.sekuriti || "-"}</Text>
                     <Text>Pos: {item.pos || "-"}</Text>
