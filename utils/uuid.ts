@@ -20,7 +20,7 @@ export function generateUUID(): string {
  * Generates a formatted ID for barang masuk
  * @returns {string} An ID in format BGP-IN-XXXXXX where XXXXXX is random alphanumeric
  */
-export function generateBarangMasukID(): string {
+export function generateNomorDO(): string {
   const randomChars = Math.random().toString(36).substring(2, 8).toUpperCase();
   return `BGP-IN-${randomChars}`;
 }

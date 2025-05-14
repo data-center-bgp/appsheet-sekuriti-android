@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { RootStackParamList } from "../types/navigation";
-import { generateUUID, generateBarangMasukID } from "../utils/uuid";
+import { generateUUID, generateNomorDO } from "../utils/uuid";
 
 export default function BarangMasukCreate() {
   const navigation = useNavigation();
@@ -58,7 +58,7 @@ export default function BarangMasukCreate() {
       setLoading(true);
       setError(null);
 
-      const formattedId = generateBarangMasukID();
+      const formattedId = generateNomorDO();
       const recordId = formData.id || generateUUID();
 
       console.log("Generated IDs:", { formattedId, recordId });
