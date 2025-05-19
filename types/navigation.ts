@@ -18,6 +18,8 @@ export type RootStackParamList = {
   SuratKeluarCreate: { editData?: any } | undefined;
   LaporanBunkerFreshWaterList: undefined;
   LaporanBunkerFreshWaterCreate: { editData?: any } | undefined;
+  LaporanMobilTangkiFuelList: undefined;
+  LaporanMobilTangkiFuelCreate: { editData?: any } | undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =
