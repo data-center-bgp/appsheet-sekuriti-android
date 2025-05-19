@@ -14,6 +14,8 @@ export type RootStackParamList = {
   OrangKeluarCreate: { editData?: any } | undefined;
   SuratMasukList: undefined;
   SuratMasukCreate: { editData?: any } | undefined;
+  SuratKeluarList: undefined;
+  SuratKeluarCreate: { editData?: any } | undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =
