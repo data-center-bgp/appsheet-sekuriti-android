@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { Text, Card, Button, ListItem } from "@rneui/themed";
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 
 export default function LaporanMobilTangkiFuel({
   navigation,

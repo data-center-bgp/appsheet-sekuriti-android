@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "./lib/supabase";
+import { supabase } from "./src/lib/supabase";
 import Auth from "./src/screens/auth/Auth";
 import Homepage from "./src/screens/Homepage";
 import Account from "./src/screens/account/Account";
@@ -8,7 +8,7 @@ import { View } from "react-native";
 import { Session } from "@supabase/supabase-js";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { RootStackParamList } from "./types/navigation";
+import { RootStackParamList } from "./src/types/navigation";
 import BarangMasukCreate from "./src/screens/barang/masuk/BarangMasukCreate";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();

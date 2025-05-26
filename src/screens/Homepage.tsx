@@ -1,10 +1,10 @@
 import { View, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { Text, Card, Button } from "@rneui/themed";
 import { Session } from "@supabase/supabase-js";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../lib/supabase";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackScreenProps } from "../../types/navigation";
+import { RootStackScreenProps } from "../types/navigation";
 
 type Props = RootStackScreenProps<"Home">;
 

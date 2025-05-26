@@ -1,15 +1,15 @@
 import { View, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { Text, Card, Button, Input } from "@rneui/base";
 import { useState } from "react";
-import { supabase } from "../../../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import { RootStackParamList } from "../../../../types/navigation";
-import { generateUUID, generateDataID } from "../../../../utils/uuid";
+import { RootStackParamList } from "../../../types/navigation";
+import { generateUUID, generateDataID } from "../../../utils/uuid";
 import {
   createTimeChangeHandler,
   openTimePicker,
-} from "../../../../utils/timeHandler";
+} from "../../../utils/timeHandler";
 
 export default function LaporanBunkerFreshWaterCreate() {
   const navigation = useNavigation();
