@@ -59,7 +59,7 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
         }
       >
         <View style={styles.header}>
-          <Text h4>Daftar Laporan Bunker/Fresh Water</Text>
+          <Text h4>Daftar Form Kejadian</Text>
           <Button
             title="Tambah Baru"
             onPress={() => navigation.navigate("FormKejadianCreate")}

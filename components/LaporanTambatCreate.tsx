@@ -12,7 +12,7 @@ import { createDateChangeHandler, openDatePicker } from "../utils/dateHandler";
 export default function LaporanTambatCreate() {
   const navigation = useNavigation();
   const route =
-    useRoute<RouteProp<RootStackParamList, "LaporanBunkerFreshWaterCreate">>();
+    useRoute<RouteProp<RootStackParamList, "LaporanTambatCreate">>();
   const editData = route.params?.editData;
   const [formData, setFormData] = useState({
     id: editData?.id || undefined,

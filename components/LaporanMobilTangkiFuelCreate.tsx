@@ -75,7 +75,7 @@ export default function LaporanMobilTangkiFuelCreate() {
         console.log("Using ID for eq condition:", formData.id);
 
         const { data, error } = await supabase
-          .from("surat_keluar")
+          .from("laporan_mobil_tangki_fuel")
           .update(dataToUpdate)
           .eq("id", formData.id);
 
@@ -92,7 +92,7 @@ export default function LaporanMobilTangkiFuelCreate() {
         console.log("Data to be inserted:", dataToInsert);
 
         const { data, error } = await supabase
-          .from("surat_keluar")
+          .from("laporan_mobil_tangki_fuel")
           .insert([dataToInsert]);
 
         console.log("Insert response:", { data, error });

@@ -116,7 +116,7 @@ export default function LaporanBunkerFreshWaterList({
                       type="outline"
                       containerStyle={styles.actionButton}
                       onPress={() =>
-                        navigation.navigate("SuratMasukCreate", {
+                        navigation.navigate("LaporanBunkerFreshWaterCreate", {
                           editData: item,
                         })
                       }

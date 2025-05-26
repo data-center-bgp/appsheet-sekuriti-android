@@ -93,7 +93,7 @@ export default function LaporanTravoBlowerCreate() {
         console.log("Using ID for eq condition:", formData.id);
 
         const { data, error } = await supabase
-          .from("surat_keluar")
+          .from("laporan_travo_blower")
           .update(dataToUpdate)
           .eq("id", formData.id);
 

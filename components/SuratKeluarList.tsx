@@ -59,10 +59,10 @@ export default function SuratKeluarList({ navigation }: { navigation: any }) {
         }
       >
         <View style={styles.header}>
-          <Text h4>Daftar Surat Masuk</Text>
+          <Text h4>Daftar Surat Keluar</Text>
           <Button
             title="Tambah Baru"
-            onPress={() => navigation.navigate("SuratMasukCreate")}
+            onPress={() => navigation.navigate("SuratKeluarCreate")}
           />
         </View>
 
@@ -104,7 +104,7 @@ export default function SuratKeluarList({ navigation }: { navigation: any }) {
                       type="outline"
                       containerStyle={styles.actionButton}
                       onPress={() =>
-                        navigation.navigate("SuratMasukCreate", {
+                        navigation.navigate("SuratKeluarCreate", {
                           editData: item,
                         })
                       }

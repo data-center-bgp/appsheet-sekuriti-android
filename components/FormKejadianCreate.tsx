@@ -9,8 +9,7 @@ import { generateUUID, generateDataID } from "../utils/uuid";
 
 export default function FormKejadianCreate() {
   const navigation = useNavigation();
-  const route =
-    useRoute<RouteProp<RootStackParamList, "LaporanBunkerFreshWaterCreate">>();
+  const route = useRoute<RouteProp<RootStackParamList, "FormKejadianCreate">>();
   const editData = route.params?.editData;
   const [formData, setFormData] = useState({
     id: editData?.id || undefined,
