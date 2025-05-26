@@ -24,6 +24,8 @@ export type RootStackParamList = {
   LaporanTravoBlowerCreate: { editData?: any } | undefined;
   LaporanTambatList: undefined;
   LaporanTambatCreate: { editData?: any } | undefined;
+  FormKejadianList: undefined;
+  FormKejadianCreate: { editData?: any } | undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =
