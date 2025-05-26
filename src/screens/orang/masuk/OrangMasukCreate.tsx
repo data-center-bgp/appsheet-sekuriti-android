@@ -1,40 +1,31 @@
 import { View, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { Text, Card, Button, Input } from "@rneui/base";
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import { RootStackParamList } from "../types/navigation";
-import { generateUUID, generateDataID } from "../utils/uuid";
-import { createTimeChangeHandler, openTimePicker } from "../utils/timeHandler";
+import { RootStackParamList } from "../../../../types/navigation";
+import { generateUUID, generateDataID } from "../../../../utils/uuid";
 
-export default function LaporanBunkerFreshWaterCreate() {
+export default function OrangMasukCreate() {
   const navigation = useNavigation();
-  const route =
-    useRoute<RouteProp<RootStackParamList, "LaporanBunkerFreshWaterCreate">>();
+  const route = useRoute<RouteProp<RootStackParamList, "OrangMasukCreate">>();
   const editData = route.params?.editData;
   const [formData, setFormData] = useState({
     id: editData?.id || undefined,
     ID: editData?.ID || "",
     tanggal: editData?.tanggal || new Date().toISOString().split("T")[0],
-    nama_kapal: editData?.nama_pengirim || "",
-    tempat_bunker: editData?.nama_penerima || "",
-    jenis_surat: editData?.jenis_surat || "",
-    waktu_mulai:
-      editData?.waktu_mulai ||
+    jam:
+      editData?.jam ||
       new Date().toLocaleTimeString("en-US", {
         hour12: false,
         timeZone: "Asia/Singapore",
       }),
-    waktu_selesai:
-      editData?.waktu_selesai ||
-      new Date().toLocaleTimeString("en-US", {
-        hour12: false,
-        timeZone: "Asia/Singapore",
-      }),
-    quantity: editData?.quantity || 0,
+    id_card: editData?.id_card || "",
+    nomor_id_card: editData?.nomor_id_card || "",
     keterangan: editData?.keterangan || "",
     sekuriti: editData?.sekuriti || "",
+    pos: editData?.pos || "",
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -49,6 +40,17 @@ export default function LaporanBunkerFreshWaterCreate() {
     }
   };
 
+  const onChangeTime = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    if (selectedTime) {
+      const currentTime = selectedTime.toLocaleTimeString("en-US", {
+        hour12: false,
+        timeZone: "Asia/Singapore",
+      });
+      setFormData({ ...formData, jam: currentTime });
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       setLoading(true);
@@ -56,6 +58,7 @@ export default function LaporanBunkerFreshWaterCreate() {
 
       const formattedId = generateDataID();
       const recordId = formData.id || generateUUID();
+
       console.log("Generated IDs:", { formattedId, recordId });
       console.log("Original formData:", formData);
 
@@ -88,7 +91,7 @@ export default function LaporanBunkerFreshWaterCreate() {
         console.log("Using ID for eq condition:", formData.id);
 
         const { data, error } = await supabase
-          .from("laporan_bunker_fresh_water")
+          .from("orang_masuk")
           .update(dataToUpdate)
           .eq("id", formData.id);
 
@@ -105,7 +108,7 @@ export default function LaporanBunkerFreshWaterCreate() {
         console.log("Data to be inserted:", dataToInsert);
 
         const { data, error } = await supabase
-          .from("laporan_bunker_fresh_water")
+          .from("orang_masuk")
           .insert([dataToInsert]);
 
         console.log("Insert response:", { data, error });
@@ -130,14 +133,14 @@ export default function LaporanBunkerFreshWaterCreate() {
     });
   };
 
-  const handleWaktuStartChange = createTimeChangeHandler(
-    setFormData,
-    "waktu_mulai"
-  );
-  const handleWaktuSelesaiChange = createTimeChangeHandler(
-    setFormData,
-    "waktu_selesai"
-  );
+  const showTimePickerDialog = () => {
+    DateTimePickerAndroid.open({
+      value: new Date(`1970-01-01T${formData.jam}:00`),
+      onChange: onChangeTime,
+      mode: "time",
+      is24Hour: true,
+    });
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -145,20 +148,6 @@ export default function LaporanBunkerFreshWaterCreate() {
         <Card containerStyle={styles.card}>
           <Card.Title>{editData ? "Edit Data" : "Tambah Data Baru"}</Card.Title>
           <Card.Divider />
-          <Input
-            placeholder="Nama Kapal"
-            value={formData.nama_kapal}
-            onChangeText={(text) =>
-              setFormData({ ...formData, nama_kapal: text })
-            }
-          />
-          <Input
-            placeholder="Tempat Bunker"
-            value={formData.tempat_bunker}
-            onChangeText={(text) =>
-              setFormData({ ...formData, tempat_bunker: text })
-            }
-          />
           <View style={styles.dateTimeContainer}>
             <Text>Tanggal: {formData.tanggal}</Text>
             <Button
@@ -169,28 +158,24 @@ export default function LaporanBunkerFreshWaterCreate() {
             />
           </View>
           <View style={styles.dateTimeContainer}>
-            <Text>Waktu Mulai: {formData.waktu_mulai}</Text>
+            <Text>Jam: {formData.jam}</Text>
             <Button
-              title="Pilih Waktu Mulai"
-              onPress={handleWaktuStartChange}
-              type="outline"
-              buttonStyle={styles.dateTimeButton}
-            />
-          </View>
-          <View style={styles.dateTimeContainer}>
-            <Text>Waktu Selesai: {formData.waktu_selesai}</Text>
-            <Button
-              title="Pilih Waktu Selesai"
-              onPress={handleWaktuSelesaiChange}
+              title="Pilih Jam"
+              onPress={showTimePickerDialog}
               type="outline"
               buttonStyle={styles.dateTimeButton}
             />
           </View>
           <Input
-            placeholder="Quantity"
-            value={formData.quantity.toString()}
-            onChangeText={(number) =>
-              setFormData({ ...formData, quantity: number })
+            placeholder="ID Card"
+            value={formData.id_card}
+            onChangeText={(text) => setFormData({ ...formData, id_card: text })}
+          />
+          <Input
+            placeholder="Nomor ID Card"
+            value={formData.nomor_id_card}
+            onChangeText={(text) =>
+              setFormData({ ...formData, nomor_id_card: text })
             }
           />
           <Input
@@ -206,6 +191,11 @@ export default function LaporanBunkerFreshWaterCreate() {
             onChangeText={(text) =>
               setFormData({ ...formData, sekuriti: text })
             }
+          />
+          <Input
+            placeholder="Pos"
+            value={formData.pos}
+            onChangeText={(text) => setFormData({ ...formData, pos: text })}
           />
           {error && <Text style={styles.errorText}>{error}</Text>}
           <Button

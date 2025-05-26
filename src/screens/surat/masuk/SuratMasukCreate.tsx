@@ -1,15 +1,15 @@
 import { View, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { Text, Card, Button, Input } from "@rneui/base";
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import { RootStackParamList } from "../types/navigation";
-import { generateUUID, generateDataID } from "../utils/uuid";
+import { RootStackParamList } from "../../../../types/navigation";
+import { generateUUID, generateDataID } from "../../../../utils/uuid";
 
-export default function OrangKeluarCreate() {
+export default function SuratMasukCreate() {
   const navigation = useNavigation();
-  const route = useRoute<RouteProp<RootStackParamList, "OrangKeluarCreate">>();
+  const route = useRoute<RouteProp<RootStackParamList, "SuratMasukCreate">>();
   const editData = route.params?.editData;
   const [formData, setFormData] = useState({
     id: editData?.id || undefined,
@@ -21,8 +21,9 @@ export default function OrangKeluarCreate() {
         hour12: false,
         timeZone: "Asia/Singapore",
       }),
-    id_card: editData?.id_card || "",
-    nomor_id_card: editData?.nomor_id_card || "",
+    nama_pengirim: editData?.nama_pengirim || "",
+    nama_penerima: editData?.nama_penerima || "",
+    jenis_surat: editData?.jenis_surat || "",
     keterangan: editData?.keterangan || "",
     sekuriti: editData?.sekuriti || "",
     pos: editData?.pos || "",
@@ -91,7 +92,7 @@ export default function OrangKeluarCreate() {
         console.log("Using ID for eq condition:", formData.id);
 
         const { data, error } = await supabase
-          .from("orang_keluar")
+          .from("surat_masuk")
           .update(dataToUpdate)
           .eq("id", formData.id);
 
@@ -108,7 +109,7 @@ export default function OrangKeluarCreate() {
         console.log("Data to be inserted:", dataToInsert);
 
         const { data, error } = await supabase
-          .from("orang_keluar")
+          .from("surat_masuk")
           .insert([dataToInsert]);
 
         console.log("Insert response:", { data, error });
@@ -126,7 +127,6 @@ export default function OrangKeluarCreate() {
   };
 
   const showDatePickerDialog = () => {
-    setShowDatePicker(true);
     DateTimePickerAndroid.open({
       value: new Date(formData.tanggal),
       onChange: onChangeDate,
@@ -135,9 +135,8 @@ export default function OrangKeluarCreate() {
   };
 
   const showTimePickerDialog = () => {
-    setShowTimePicker(true);
     DateTimePickerAndroid.open({
-      value: new Date(formData.jam),
+      value: new Date(`1970-01-01T${formData.jam}:00`),
       onChange: onChangeTime,
       mode: "time",
       is24Hour: true,
@@ -169,15 +168,24 @@ export default function OrangKeluarCreate() {
             />
           </View>
           <Input
-            placeholder="ID Card"
-            value={formData.id_card}
-            onChangeText={(text) => setFormData({ ...formData, id_card: text })}
+            placeholder="Nama Pengirim"
+            value={formData.nama_pengirim}
+            onChangeText={(text) =>
+              setFormData({ ...formData, nama_pengirim: text })
+            }
           />
           <Input
-            placeholder="Nomor ID Card"
-            value={formData.nomor_id_card}
+            placeholder="Nama Penerima"
+            value={formData.nama_penerima}
             onChangeText={(text) =>
-              setFormData({ ...formData, nomor_id_card: text })
+              setFormData({ ...formData, nama_penerima: text })
+            }
+          />
+          <Input
+            placeholder="Jenis Surat"
+            value={formData.jenis_surat}
+            onChangeText={(text) =>
+              setFormData({ ...formData, jenis_surat: text })
             }
           />
           <Input

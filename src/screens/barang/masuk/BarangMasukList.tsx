@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { Text, Card, Button, ListItem, Icon } from "@rneui/themed";
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 
 export default function BarangMasukList({ navigation }: { navigation: any }) {
   const [barangMasuk, setBarangMasuk] = useState<any[]>([]);

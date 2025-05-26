@@ -7,50 +7,38 @@ import {
 } from "react-native";
 import { Text, Card, Button, ListItem } from "@rneui/themed";
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 
-export default function LaporanBunkerFreshWaterList({
-  navigation,
-}: {
-  navigation: any;
-}) {
-  const [laporanBunkerFreshWater, setLaporanBunkerFreshWater] = useState<any[]>(
-    []
-  );
+export default function SuratMasukList({ navigation }: { navigation: any }) {
+  const [suratMasuk, setSuratMasuk] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchLaporanBunkerFreshWater();
+    fetchSuratMasuk();
     const unsubscribe = navigation.addListener("focus", () => {
-      fetchLaporanBunkerFreshWater();
+      fetchSuratMasuk();
     });
     return unsubscribe;
   }, [navigation]);
 
-  async function fetchLaporanBunkerFreshWater() {
+  async function fetchSuratMasuk() {
     try {
       setLoading(true);
-      let { data: laporan_bunker_fresh_water, error } = await supabase
-        .from("laporan_bunker_fresh_water")
+      let { data: surat_masuk, error } = await supabase
+        .from("surat_masuk")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      if (laporan_bunker_fresh_water) {
-        console.log(
-          "Fetched laporan bunker/fresh water:",
-          laporan_bunker_fresh_water
-        );
-        setLaporanBunkerFreshWater(laporan_bunker_fresh_water);
+      if (surat_masuk) {
+        console.log("Fetched surat masuk:", surat_masuk);
+        setSuratMasuk(surat_masuk);
       }
     } catch (error: any) {
       setError(error.message);
-      console.error(
-        "Error fetching laporan bunker/fresh water:",
-        error.message
-      );
+      console.error("Error fetching surat masuk:", error.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -59,7 +47,7 @@ export default function LaporanBunkerFreshWaterList({
 
   const onRefresh = async () => {
     setRefreshing(true);
-    fetchLaporanBunkerFreshWater();
+    fetchSuratMasuk();
   };
 
   return (
@@ -71,10 +59,10 @@ export default function LaporanBunkerFreshWaterList({
         }
       >
         <View style={styles.header}>
-          <Text h4>Daftar Laporan Bunker/Fresh Water</Text>
+          <Text h4>Daftar Surat Masuk</Text>
           <Button
             title="Tambah Baru"
-            onPress={() => navigation.navigate("LaporanBunkerFreshWaterCreate")}
+            onPress={() => navigation.navigate("SuratMasukCreate")}
           />
         </View>
 
@@ -82,7 +70,7 @@ export default function LaporanBunkerFreshWaterList({
           <Text style={styles.loadingText}>Loading...</Text>
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
-        ) : laporanBunkerFreshWater.length === 0 ? (
+        ) : suratMasuk.length === 0 ? (
           <Card containerStyle={styles.card}>
             <Text style={styles.errorText}>
               Belum ada data yang dimasukkan!
@@ -90,7 +78,7 @@ export default function LaporanBunkerFreshWaterList({
           </Card>
         ) : (
           <Card containerStyle={styles.card}>
-            {laporanBunkerFreshWater.map((item) => (
+            {suratMasuk.map((item) => (
               <ListItem key={item.id} bottomDivider>
                 <ListItem.Content>
                   <View style={styles.titleContainer}>
@@ -106,8 +94,6 @@ export default function LaporanBunkerFreshWaterList({
                     <Text>Nama Pengirim: {item.nama_pengirim || "-"}</Text>
                     <Text>Nama Penerima: {item.nama_penerima || "-"}</Text>
                     <Text>Jenis Surat: {item.jenis_surat || "-"}</Text>
-                    <Text>Kurir: {item.kurir || "-"}</Text>
-                    <Text>Tujuan: {item.tujuan || "-"}</Text>
                     <Text>Keterangan: {item.keterangan || "-"}</Text>
                     <Text>Sekuriti: {item.sekuriti || "-"}</Text>
                     <Text>Pos: {item.pos || "-"}</Text>
@@ -116,7 +102,7 @@ export default function LaporanBunkerFreshWaterList({
                       type="outline"
                       containerStyle={styles.actionButton}
                       onPress={() =>
-                        navigation.navigate("LaporanBunkerFreshWaterCreate", {
+                        navigation.navigate("SuratMasukCreate", {
                           editData: item,
                         })
                       }

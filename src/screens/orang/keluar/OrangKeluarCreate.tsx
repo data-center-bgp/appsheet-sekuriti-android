@@ -1,29 +1,31 @@
 import { View, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { Text, Card, Button, Input } from "@rneui/base";
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import { RootStackParamList } from "../types/navigation";
-import { generateUUID, generateDataID } from "../utils/uuid";
+import { RootStackParamList } from "../../../../types/navigation";
+import { generateUUID, generateDataID } from "../../../../utils/uuid";
 
-export default function FormKejadianCreate() {
+export default function OrangKeluarCreate() {
   const navigation = useNavigation();
-  const route = useRoute<RouteProp<RootStackParamList, "FormKejadianCreate">>();
+  const route = useRoute<RouteProp<RootStackParamList, "OrangKeluarCreate">>();
   const editData = route.params?.editData;
   const [formData, setFormData] = useState({
     id: editData?.id || undefined,
     ID: editData?.ID || "",
     tanggal: editData?.tanggal || new Date().toISOString().split("T")[0],
     jam:
-      editData?.waktu_mulai ||
+      editData?.jam ||
       new Date().toLocaleTimeString("en-US", {
         hour12: false,
         timeZone: "Asia/Singapore",
       }),
-    kejadian: editData?.kejadian || "",
-    lokasi: editData?.lokasi || "",
+    id_card: editData?.id_card || "",
+    nomor_id_card: editData?.nomor_id_card || "",
+    keterangan: editData?.keterangan || "",
     sekuriti: editData?.sekuriti || "",
+    pos: editData?.pos || "",
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -56,6 +58,7 @@ export default function FormKejadianCreate() {
 
       const formattedId = generateDataID();
       const recordId = formData.id || generateUUID();
+
       console.log("Generated IDs:", { formattedId, recordId });
       console.log("Original formData:", formData);
 
@@ -88,7 +91,7 @@ export default function FormKejadianCreate() {
         console.log("Using ID for eq condition:", formData.id);
 
         const { data, error } = await supabase
-          .from("form_kejadian")
+          .from("orang_keluar")
           .update(dataToUpdate)
           .eq("id", formData.id);
 
@@ -105,7 +108,7 @@ export default function FormKejadianCreate() {
         console.log("Data to be inserted:", dataToInsert);
 
         const { data, error } = await supabase
-          .from("form_kejadian")
+          .from("orang_keluar")
           .insert([dataToInsert]);
 
         console.log("Insert response:", { data, error });
@@ -134,7 +137,7 @@ export default function FormKejadianCreate() {
   const showTimePickerDialog = () => {
     setShowTimePicker(true);
     DateTimePickerAndroid.open({
-      value: new Date(`1970-01-01T${formData.jam}:00`),
+      value: new Date(formData.jam),
       onChange: onChangeTime,
       mode: "time",
       is24Hour: true,
@@ -157,25 +160,32 @@ export default function FormKejadianCreate() {
             />
           </View>
           <View style={styles.dateTimeContainer}>
-            <Text>Waktu Mulai: {formData.jam}</Text>
+            <Text>Jam: {formData.jam}</Text>
             <Button
-              title="Pilih Waktu Mulai"
+              title="Pilih Jam"
               onPress={showTimePickerDialog}
               type="outline"
               buttonStyle={styles.dateTimeButton}
             />
           </View>
           <Input
-            placeholder="Kejadian"
-            value={formData.kejadian}
+            placeholder="ID Card"
+            value={formData.id_card}
+            onChangeText={(text) => setFormData({ ...formData, id_card: text })}
+          />
+          <Input
+            placeholder="Nomor ID Card"
+            value={formData.nomor_id_card}
             onChangeText={(text) =>
-              setFormData({ ...formData, kejadian: text })
+              setFormData({ ...formData, nomor_id_card: text })
             }
           />
           <Input
             placeholder="Keterangan"
-            value={formData.lokasi}
-            onChangeText={(text) => setFormData({ ...formData, lokasi: text })}
+            value={formData.keterangan}
+            onChangeText={(text) =>
+              setFormData({ ...formData, keterangan: text })
+            }
           />
           <Input
             placeholder="Sekuriti"
@@ -183,6 +193,11 @@ export default function FormKejadianCreate() {
             onChangeText={(text) =>
               setFormData({ ...formData, sekuriti: text })
             }
+          />
+          <Input
+            placeholder="Pos"
+            value={formData.pos}
+            onChangeText={(text) => setFormData({ ...formData, pos: text })}
           />
           {error && <Text style={styles.errorText}>{error}</Text>}
           <Button

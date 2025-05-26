@@ -7,40 +7,38 @@ import {
 } from "react-native";
 import { Text, Card, Button, ListItem } from "@rneui/themed";
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 
-export default function OrangKeluarList({ navigation }: { navigation: any }) {
-  const [orangKeluar, setOrangKeluar] = useState<any[]>([]);
+export default function FormKejadianList({ navigation }: { navigation: any }) {
+  const [formKejadian, setFormKejadian] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchOrangKeluar();
+    fetchFormKejadian();
     const unsubscribe = navigation.addListener("focus", () => {
-      fetchOrangKeluar();
+      fetchFormKejadian();
     });
     return unsubscribe;
   }, [navigation]);
 
-  async function fetchOrangKeluar() {
+  async function fetchFormKejadian() {
     try {
       setLoading(true);
-      let { data: orang_keluar, error } = await supabase
-        .from("orang_keluar")
-        .select(
-          "id, ID, tanggal, jam, id_card, nomor_id_card, keterangan, sekuriti, pos"
-        )
+      let { data: form_kejadian, error } = await supabase
+        .from("form_kejadian")
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      if (orang_keluar) {
-        console.log("Fetched orang keluar:", orang_keluar);
-        setOrangKeluar(orang_keluar);
+      if (form_kejadian) {
+        console.log("Fetched form kejadian:", form_kejadian);
+        setFormKejadian(formKejadian);
       }
     } catch (error: any) {
       setError(error.message);
-      console.error("Error fetching orang keluar:", error.message);
+      console.error("Error fetching form kejadian:", error.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -49,7 +47,7 @@ export default function OrangKeluarList({ navigation }: { navigation: any }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    fetchOrangKeluar();
+    fetchFormKejadian();
   };
 
   return (
@@ -61,10 +59,10 @@ export default function OrangKeluarList({ navigation }: { navigation: any }) {
         }
       >
         <View style={styles.header}>
-          <Text h4>Daftar Orang Keluar</Text>
+          <Text h4>Daftar Form Kejadian</Text>
           <Button
             title="Tambah Baru"
-            onPress={() => navigation.navigate("OrangKeluarCreate")}
+            onPress={() => navigation.navigate("FormKejadianCreate")}
           />
         </View>
 
@@ -72,7 +70,7 @@ export default function OrangKeluarList({ navigation }: { navigation: any }) {
           <Text style={styles.loadingText}>Loading...</Text>
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
-        ) : orangKeluar.length === 0 ? (
+        ) : formKejadian.length === 0 ? (
           <Card containerStyle={styles.card}>
             <Text style={styles.errorText}>
               Belum ada data yang dimasukkan!
@@ -80,7 +78,7 @@ export default function OrangKeluarList({ navigation }: { navigation: any }) {
           </Card>
         ) : (
           <Card containerStyle={styles.card}>
-            {orangKeluar.map((item) => (
+            {formKejadian.map((item) => (
               <ListItem key={item.id} bottomDivider>
                 <ListItem.Content>
                   <View style={styles.titleContainer}>
@@ -93,17 +91,15 @@ export default function OrangKeluarList({ navigation }: { navigation: any }) {
 
                   <View style={styles.previewContent}>
                     <Text>ID: {item.ID || "-"}</Text>
-                    <Text>ID Card: {item.id_card || "-"}</Text>
-                    <Text>Nomor ID Card: {item.nomor_id_card || "-"}</Text>
-                    <Text>Keterangan: {item.keterangan || "-"}</Text>
+                    <Text>Kejadian: {item.kejadian || "-"}</Text>
+                    <Text>Lokasi: {item.nama_penerima || "-"}</Text>
                     <Text>Sekuriti: {item.sekuriti || "-"}</Text>
-                    <Text>Pos: {item.pos || "-"}</Text>
                     <Button
                       title="Edit"
                       type="outline"
                       containerStyle={styles.actionButton}
                       onPress={() =>
-                        navigation.navigate("OrangKeluarCreate", {
+                        navigation.navigate("FormKejadianCreate", {
                           editData: item,
                         })
                       }

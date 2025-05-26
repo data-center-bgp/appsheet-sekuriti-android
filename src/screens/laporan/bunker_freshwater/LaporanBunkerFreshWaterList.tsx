@@ -7,40 +7,50 @@ import {
 } from "react-native";
 import { Text, Card, Button, ListItem } from "@rneui/themed";
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 
-export default function OrangMasukList({ navigation }: { navigation: any }) {
-  const [orangMasuk, setOrangMasuk] = useState<any[]>([]);
+export default function LaporanBunkerFreshWaterList({
+  navigation,
+}: {
+  navigation: any;
+}) {
+  const [laporanBunkerFreshWater, setLaporanBunkerFreshWater] = useState<any[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchOrangMasuk();
+    fetchLaporanBunkerFreshWater();
     const unsubscribe = navigation.addListener("focus", () => {
-      fetchOrangMasuk();
+      fetchLaporanBunkerFreshWater();
     });
     return unsubscribe;
   }, [navigation]);
 
-  async function fetchOrangMasuk() {
+  async function fetchLaporanBunkerFreshWater() {
     try {
       setLoading(true);
-      let { data: orang_masuk, error } = await supabase
-        .from("orang_masuk")
-        .select(
-          "id, ID, tanggal, jam, id_card, nomor_id_card, keterangan, sekuriti, pos"
-        )
+      let { data: laporan_bunker_fresh_water, error } = await supabase
+        .from("laporan_bunker_fresh_water")
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      if (orang_masuk) {
-        console.log("Fetched orang masuk:", orang_masuk);
-        setOrangMasuk(orang_masuk);
+      if (laporan_bunker_fresh_water) {
+        console.log(
+          "Fetched laporan bunker/fresh water:",
+          laporan_bunker_fresh_water
+        );
+        setLaporanBunkerFreshWater(laporan_bunker_fresh_water);
       }
     } catch (error: any) {
       setError(error.message);
-      console.error("Error fetching orang masuk:", error.message);
+      console.error(
+        "Error fetching laporan bunker/fresh water:",
+        error.message
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -49,7 +59,7 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    fetchOrangMasuk();
+    fetchLaporanBunkerFreshWater();
   };
 
   return (
@@ -61,10 +71,10 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
         }
       >
         <View style={styles.header}>
-          <Text h4>Daftar Orang Masuk</Text>
+          <Text h4>Daftar Laporan Bunker/Fresh Water</Text>
           <Button
             title="Tambah Baru"
-            onPress={() => navigation.navigate("OrangMasukCreate")}
+            onPress={() => navigation.navigate("LaporanBunkerFreshWaterCreate")}
           />
         </View>
 
@@ -72,7 +82,7 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
           <Text style={styles.loadingText}>Loading...</Text>
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
-        ) : orangMasuk.length === 0 ? (
+        ) : laporanBunkerFreshWater.length === 0 ? (
           <Card containerStyle={styles.card}>
             <Text style={styles.errorText}>
               Belum ada data yang dimasukkan!
@@ -80,7 +90,7 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
           </Card>
         ) : (
           <Card containerStyle={styles.card}>
-            {orangMasuk.map((item) => (
+            {laporanBunkerFreshWater.map((item) => (
               <ListItem key={item.id} bottomDivider>
                 <ListItem.Content>
                   <View style={styles.titleContainer}>
@@ -93,8 +103,11 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
 
                   <View style={styles.previewContent}>
                     <Text>ID: {item.ID || "-"}</Text>
-                    <Text>ID Card: {item.id_card || "-"}</Text>
-                    <Text>Nomor ID Card: {item.nomor_id_card || "-"}</Text>
+                    <Text>Nama Pengirim: {item.nama_pengirim || "-"}</Text>
+                    <Text>Nama Penerima: {item.nama_penerima || "-"}</Text>
+                    <Text>Jenis Surat: {item.jenis_surat || "-"}</Text>
+                    <Text>Kurir: {item.kurir || "-"}</Text>
+                    <Text>Tujuan: {item.tujuan || "-"}</Text>
                     <Text>Keterangan: {item.keterangan || "-"}</Text>
                     <Text>Sekuriti: {item.sekuriti || "-"}</Text>
                     <Text>Pos: {item.pos || "-"}</Text>
@@ -103,7 +116,7 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
                       type="outline"
                       containerStyle={styles.actionButton}
                       onPress={() =>
-                        navigation.navigate("BarangMasukCreate", {
+                        navigation.navigate("LaporanBunkerFreshWaterCreate", {
                           editData: item,
                         })
                       }

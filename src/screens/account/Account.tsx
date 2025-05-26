@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 import { StyleSheet, View, Alert, Text } from "react-native";
 import { Button, Input } from "@rneui/themed";
 import { Session } from "@supabase/supabase-js";
-import { RootStackScreenProps } from "../types/navigation";
+import { RootStackScreenProps } from "../../../types/navigation";
 
 type Props = RootStackScreenProps<"Account">;
 

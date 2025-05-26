@@ -7,38 +7,40 @@ import {
 } from "react-native";
 import { Text, Card, Button, ListItem } from "@rneui/themed";
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 
-export default function SuratMasukList({ navigation }: { navigation: any }) {
-  const [suratMasuk, setSuratMasuk] = useState<any[]>([]);
+export default function OrangKeluarList({ navigation }: { navigation: any }) {
+  const [orangKeluar, setOrangKeluar] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchSuratMasuk();
+    fetchOrangKeluar();
     const unsubscribe = navigation.addListener("focus", () => {
-      fetchSuratMasuk();
+      fetchOrangKeluar();
     });
     return unsubscribe;
   }, [navigation]);
 
-  async function fetchSuratMasuk() {
+  async function fetchOrangKeluar() {
     try {
       setLoading(true);
-      let { data: surat_masuk, error } = await supabase
-        .from("surat_masuk")
-        .select("*")
+      let { data: orang_keluar, error } = await supabase
+        .from("orang_keluar")
+        .select(
+          "id, ID, tanggal, jam, id_card, nomor_id_card, keterangan, sekuriti, pos"
+        )
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      if (surat_masuk) {
-        console.log("Fetched surat masuk:", surat_masuk);
-        setSuratMasuk(surat_masuk);
+      if (orang_keluar) {
+        console.log("Fetched orang keluar:", orang_keluar);
+        setOrangKeluar(orang_keluar);
       }
     } catch (error: any) {
       setError(error.message);
-      console.error("Error fetching surat masuk:", error.message);
+      console.error("Error fetching orang keluar:", error.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -47,7 +49,7 @@ export default function SuratMasukList({ navigation }: { navigation: any }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    fetchSuratMasuk();
+    fetchOrangKeluar();
   };
 
   return (
@@ -59,10 +61,10 @@ export default function SuratMasukList({ navigation }: { navigation: any }) {
         }
       >
         <View style={styles.header}>
-          <Text h4>Daftar Surat Masuk</Text>
+          <Text h4>Daftar Orang Keluar</Text>
           <Button
             title="Tambah Baru"
-            onPress={() => navigation.navigate("SuratMasukCreate")}
+            onPress={() => navigation.navigate("OrangKeluarCreate")}
           />
         </View>
 
@@ -70,7 +72,7 @@ export default function SuratMasukList({ navigation }: { navigation: any }) {
           <Text style={styles.loadingText}>Loading...</Text>
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
-        ) : suratMasuk.length === 0 ? (
+        ) : orangKeluar.length === 0 ? (
           <Card containerStyle={styles.card}>
             <Text style={styles.errorText}>
               Belum ada data yang dimasukkan!
@@ -78,7 +80,7 @@ export default function SuratMasukList({ navigation }: { navigation: any }) {
           </Card>
         ) : (
           <Card containerStyle={styles.card}>
-            {suratMasuk.map((item) => (
+            {orangKeluar.map((item) => (
               <ListItem key={item.id} bottomDivider>
                 <ListItem.Content>
                   <View style={styles.titleContainer}>
@@ -91,9 +93,8 @@ export default function SuratMasukList({ navigation }: { navigation: any }) {
 
                   <View style={styles.previewContent}>
                     <Text>ID: {item.ID || "-"}</Text>
-                    <Text>Nama Pengirim: {item.nama_pengirim || "-"}</Text>
-                    <Text>Nama Penerima: {item.nama_penerima || "-"}</Text>
-                    <Text>Jenis Surat: {item.jenis_surat || "-"}</Text>
+                    <Text>ID Card: {item.id_card || "-"}</Text>
+                    <Text>Nomor ID Card: {item.nomor_id_card || "-"}</Text>
                     <Text>Keterangan: {item.keterangan || "-"}</Text>
                     <Text>Sekuriti: {item.sekuriti || "-"}</Text>
                     <Text>Pos: {item.pos || "-"}</Text>
@@ -102,7 +103,7 @@ export default function SuratMasukList({ navigation }: { navigation: any }) {
                       type="outline"
                       containerStyle={styles.actionButton}
                       onPress={() =>
-                        navigation.navigate("SuratMasukCreate", {
+                        navigation.navigate("OrangKeluarCreate", {
                           editData: item,
                         })
                       }
