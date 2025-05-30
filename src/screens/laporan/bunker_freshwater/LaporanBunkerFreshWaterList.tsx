@@ -33,7 +33,7 @@ export default function LaporanBunkerFreshWaterList({
     try {
       setLoading(true);
       let { data: laporan_bunker_fresh_water, error } = await supabase
-        .from("laporan_bunker_fresh_water")
+        .from("laporan_bunker_freshwater")
         .select("*")
         .order("created_at", { ascending: false });
 

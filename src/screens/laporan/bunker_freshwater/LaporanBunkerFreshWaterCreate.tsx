@@ -91,7 +91,7 @@ export default function LaporanBunkerFreshWaterCreate() {
         console.log("Using ID for eq condition:", formData.id);
 
         const { data, error } = await supabase
-          .from("laporan_bunker_fresh_water")
+          .from("laporan_bunker_freshwater")
           .update(dataToUpdate)
           .eq("id", formData.id);
 
@@ -108,7 +108,7 @@ export default function LaporanBunkerFreshWaterCreate() {
         console.log("Data to be inserted:", dataToInsert);
 
         const { data, error } = await supabase
-          .from("laporan_bunker_fresh_water")
+          .from("laporan_bunker_freshwater")
           .insert([dataToInsert]);
 
         console.log("Insert response:", { data, error });

@@ -43,6 +43,66 @@ export default function Homepage({ route, navigation }: Props) {
               containerStyle={styles.buttonContainer}
             />
             <Button
+              title="Barang Keluar"
+              type="outline"
+              onPress={() => navigation.navigate("BarangKeluarList")}
+              containerStyle={styles.buttonContainer}
+            />
+            <Button
+              title="Orang Masuk"
+              type="outline"
+              onPress={() => navigation.navigate("OrangMasukList")}
+              containerStyle={styles.buttonContainer}
+            />
+            <Button
+              title="Orang Keluar"
+              type="outline"
+              onPress={() => navigation.navigate("OrangKeluarList")}
+              containerStyle={styles.buttonContainer}
+            />
+            <Button
+              title="Surat Masuk"
+              type="outline"
+              onPress={() => navigation.navigate("SuratMasukList")}
+              containerStyle={styles.buttonContainer}
+            />
+            <Button
+              title="Surat Keluar"
+              type="outline"
+              onPress={() => navigation.navigate("SuratKeluarList")}
+              containerStyle={styles.buttonContainer}
+            />
+            <Button
+              title="Form Kejadian"
+              type="outline"
+              onPress={() => navigation.navigate("FormKejadianList")}
+              containerStyle={styles.buttonContainer}
+            />
+            <Button
+              title="Laporan Bunker/Fresh Water"
+              type="outline"
+              onPress={() => navigation.navigate("LaporanBunkerFreshWaterList")}
+              containerStyle={styles.buttonContainer}
+            />
+            <Button
+              title="Laporan Mobil Tangki Fuel"
+              type="outline"
+              onPress={() => navigation.navigate("LaporanMobilTangkiFuelList")}
+              containerStyle={styles.buttonContainer}
+            />
+            <Button
+              title="Laporan Travo/Blower"
+              type="outline"
+              onPress={() => navigation.navigate("LaporanTravoBlowerList")}
+              containerStyle={styles.buttonContainer}
+            />
+            <Button
+              title="Laporan Tambat"
+              type="outline"
+              onPress={() => navigation.navigate("LaporanTambatList")}
+              containerStyle={styles.buttonContainer}
+            />
+            <Button
               title="Sign Out"
               onPress={signOut}
               type="outline"
