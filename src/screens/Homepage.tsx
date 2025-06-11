@@ -5,15 +5,20 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Dimensions,
+  Alert,
+  Modal,
+  Animated,
+  PanResponder,
 } from "react-native";
 import { Text, Card, Button, Icon, Avatar } from "@rneui/themed";
+import { useState, useRef, useEffect } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackScreenProps } from "../types/navigation";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
 
 type Props = RootStackScreenProps<"Home">;
 
@@ -26,16 +31,178 @@ interface QuickActionItem {
   params?: any;
 }
 
+interface MenuOption {
+  title: string;
+  icon: string;
+  action: () => void;
+  color?: string;
+}
+
+interface UserProfile {
+  id: string;
+  full_name: string | null;
+  email: string;
+}
+
 export default function Homepage({ route, navigation }: Props) {
   const { session } = route.params;
+  const [showMenu, setShowMenu] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const slideAnim = useRef(new Animated.Value(height)).current;
+
+  useEffect(() => {
+    fetchUserProfile();
+  }, [session]);
+
+  useEffect(() => {
+    if (showMenu) {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 65,
+        friction: 11,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: height,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showMenu]);
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("id", session.user.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching profile:", error);
+        // Fallback to email if profile fetch fails
+        setUserProfile({
+          id: session.user.id,
+          full_name: null,
+          email: session.user.email || "",
+        });
+      } else {
+        setUserProfile({
+          id: data.id,
+          full_name: data.full_name,
+          email: session.user.email || "",
+        });
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      // Fallback to email
+      setUserProfile({
+        id: session.user.id,
+        full_name: null,
+        email: session.user.email || "",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const panResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      return (
+        gestureState.dy > 0 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+      );
+    },
+    onPanResponderMove: (evt, gestureState) => {
+      if (gestureState.dy > 0) {
+        slideAnim.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (evt, gestureState) => {
+      if (gestureState.dy > 100 || gestureState.vy > 0.5) {
+        closeMenu();
+      } else {
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
+
+  const openMenu = () => {
+    setShowMenu(true);
+  };
+
+  const closeMenu = () => {
+    Animated.timing(slideAnim, {
+      toValue: height,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowMenu(false);
+    });
+  };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    Alert.alert(
+      "Konfirmasi Keluar",
+      "Apakah Anda yakin ingin keluar dari aplikasi?",
+      [
+        {
+          text: "Batal",
+          style: "cancel",
+        },
+        {
+          text: "Keluar",
+          style: "destructive",
+          onPress: async () => {
+            closeMenu();
+            await supabase.auth.signOut();
+          },
+        },
+      ]
+    );
   };
 
-  const getUserInitials = (email: string) => {
-    return email.substring(0, 2).toUpperCase();
+  const getUserInitials = (name: string) => {
+    if (!name) return "??";
+
+    const names = name.trim().split(" ");
+    if (names.length === 1) {
+      return names[0].substring(0, 2).toUpperCase();
+    }
+    return (
+      names[0].charAt(0) + names[names.length - 1].charAt(0)
+    ).toUpperCase();
   };
+
+  const getDisplayName = () => {
+    if (loading) return "Loading...";
+    if (userProfile?.full_name) return userProfile.full_name;
+    return userProfile?.email || "User";
+  };
+
+  const menuOptions: MenuOption[] = [
+    {
+      title: "Pengaturan Akun",
+      icon: "user",
+      action: () => {
+        closeMenu();
+        navigation.navigate("Account", { session });
+      },
+      color: "#007bff",
+    },
+    {
+      title: "Keluar",
+      icon: "log-out",
+      action: signOut,
+      color: "#dc3545",
+    },
+  ];
 
   const quickActions: QuickActionItem[] = [
     {
@@ -149,6 +316,38 @@ export default function Homepage({ route, navigation }: Props) {
     </TouchableOpacity>
   );
 
+  const renderMenuOption = (option: MenuOption, index: number) => (
+    <TouchableOpacity
+      key={index}
+      style={styles.menuOption}
+      onPress={option.action}
+      activeOpacity={0.7}
+    >
+      <View
+        style={[
+          styles.menuIconContainer,
+          { backgroundColor: (option.color || "#6c757d") + "20" },
+        ]}
+      >
+        <Icon
+          name={option.icon}
+          type="feather"
+          size={20}
+          color={option.color || "#6c757d"}
+        />
+      </View>
+      <Text
+        style={[
+          styles.menuOptionText,
+          option.color === "#dc3545" && styles.menuOptionDanger,
+        ]}
+      >
+        {option.title}
+      </Text>
+      <Icon name="chevron-right" type="feather" size={16} color="#6c757d" />
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -162,36 +361,29 @@ export default function Homepage({ route, navigation }: Props) {
             <Avatar
               size={60}
               rounded
-              title={getUserInitials(session.user.email || "")}
+              title={getUserInitials(getDisplayName())}
               containerStyle={styles.avatar}
             />
             <View style={styles.userDetails}>
               <Text style={styles.welcomeText}>Selamat Datang</Text>
-              <Text style={styles.userEmail} numberOfLines={1}>
-                {session.user.email}
+              <Text style={styles.userName} numberOfLines={1}>
+                {getDisplayName()}
               </Text>
+              {userProfile?.full_name && (
+                <Text style={styles.userEmail} numberOfLines={1}>
+                  {userProfile.email}
+                </Text>
+              )}
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={() => navigation.navigate("Account", { session })}
-          >
-            <Icon name="settings" type="feather" size={24} color="#6c757d" />
+          <TouchableOpacity style={styles.settingsButton} onPress={openMenu}>
+            <Icon
+              name="more-vertical"
+              type="feather"
+              size={24}
+              color="#6c757d"
+            />
           </TouchableOpacity>
-        </View>
-
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Icon name="activity" type="feather" size={20} color="#28a745" />
-            <Text style={styles.statNumber}>0</Text>
-            <Text style={styles.statLabel}>Aktivitas Hari Ini</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Icon name="clock" type="feather" size={20} color="#ffc107" />
-            <Text style={styles.statNumber}>0</Text>
-            <Text style={styles.statLabel}>Pending</Text>
-          </View>
         </View>
 
         {/* Quick Actions Section */}
@@ -219,24 +411,51 @@ export default function Homepage({ route, navigation }: Props) {
             {reportActions.map((item, index) => renderActionCard(item, index))}
           </View>
         </View>
-
-        {/* Sign Out Button */}
-        <View style={styles.signOutContainer}>
-          <Button
-            title="Keluar"
-            onPress={signOut}
-            buttonStyle={styles.signOutButton}
-            titleStyle={styles.signOutText}
-            icon={{
-              name: "log-out",
-              type: "feather",
-              color: "#dc3545",
-              size: 18,
-            }}
-            type="outline"
-          />
-        </View>
       </ScrollView>
+
+      {/* Bottom Sheet Modal */}
+      <Modal
+        visible={showMenu}
+        transparent={true}
+        animationType="none"
+        onRequestClose={closeMenu}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.backdrop}
+            activeOpacity={1}
+            onPress={closeMenu}
+          />
+
+          <Animated.View
+            style={[
+              styles.bottomSheet,
+              {
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+            {...panResponder.panHandlers}
+          >
+            {/* Handle Bar */}
+            <View style={styles.handleBar} />
+
+            {/* Sheet Header */}
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Menu</Text>
+              <TouchableOpacity onPress={closeMenu} style={styles.closeButton}>
+                <Icon name="x" type="feather" size={20} color="#6c757d" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Menu Options */}
+            <View style={styles.sheetContent}>
+              {menuOptions.map((option, index) =>
+                renderMenuOption(option, index)
+              )}
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -278,48 +497,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#6c757d",
   },
-  userEmail: {
+  userName: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#212529",
     marginTop: 2,
   },
+  userEmail: {
+    fontSize: 14,
+    color: "#6c757d",
+    marginTop: 2,
+  },
   settingsButton: {
     padding: 8,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: "white",
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#212529",
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#6c757d",
-    marginTop: 4,
-    textAlign: "center",
   },
   section: {
     paddingHorizontal: 16,
     marginBottom: 24,
+    marginTop: 16,
   },
   sectionTitle: {
     fontSize: 20,
@@ -334,7 +529,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   actionCard: {
-    width: (width - 56) / 2, // 2 columns with spacing
+    width: (width - 56) / 2,
     backgroundColor: "white",
     padding: 16,
     borderRadius: 12,
@@ -360,20 +555,76 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
   },
-  signOutContainer: {
+  // Bottom Sheet Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  backdrop: {
+    flex: 1,
+  },
+  bottomSheet: {
+    backgroundColor: "white",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+    maxHeight: height * 0.6,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#dee2e6",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e9ecef",
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#212529",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  sheetContent: {
+    paddingHorizontal: 8,
+    paddingTop: 8,
+  },
+  menuOption: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginVertical: 2,
+    marginHorizontal: 8,
   },
-  signOutButton: {
-    borderColor: "#dc3545",
-    borderWidth: 1,
-    backgroundColor: "transparent",
-    borderRadius: 8,
-    height: 48,
+  menuIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
   },
-  signOutText: {
+  menuOptionText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#212529",
+  },
+  menuOptionDanger: {
     color: "#dc3545",
-    marginLeft: 8,
-    fontWeight: "600",
   },
 });
