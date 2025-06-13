@@ -13,7 +13,7 @@ import {
 import { Text, Button, Icon, Badge, SearchBar, Card } from "@rneui/themed";
 import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
-import { deletePhotoFromStorage } from "../../../utils/photoHandler";
+import { deletePhotoFromStorage } from "../../../utils/photoDoMasukHandler";
 
 const { width, height } = Dimensions.get("window");
 

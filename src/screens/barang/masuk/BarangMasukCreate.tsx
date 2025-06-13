@@ -16,7 +16,7 @@ import {
   takePhoto,
   generatePhotoFileName,
   PhotoUploadResult,
-} from "../../../utils/photoHandler";
+} from "../../../utils/photoDoMasukHandler";
 import { Text, Card, Button, Input, Icon, Header } from "@rneui/themed";
 import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
