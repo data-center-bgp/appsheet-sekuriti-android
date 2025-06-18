@@ -100,9 +100,9 @@ export async function takePhoto(): Promise<ImagePicker.ImagePickerResult> {
 }
 
 export function generatePhotoFileName(
-  barangMasukId: string,
+  barangKeluarId: string,
   index: number
 ): string {
   const timestamp = new Date().getTime();
-  return `barang_masuk_${barangMasukId}_${index}_${timestamp}.jpg`;
+  return `barang_keluar_${barangKeluarId}_${index}_${timestamp}.jpg`;
 }
