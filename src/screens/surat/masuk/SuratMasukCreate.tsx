@@ -195,10 +195,9 @@ export default function SuratMasukCreate() {
 
   const onChangeTime = (event: any, selectedTime?: Date) => {
     if (selectedTime) {
-      const currentTime = selectedTime.toLocaleTimeString("en-US", {
-        hour12: false,
-        timeZone: "Asia/Singapore",
-      });
+      const hours = selectedTime.getHours().toString().padStart(2, "0");
+      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
+      const currentTime = `${hours}:${minutes}:00`;
       setFormData({ ...formData, jam: currentTime });
     }
   };

@@ -201,20 +201,18 @@ export default function LaporanBunkerFreshWaterCreate() {
 
   const onChangeWaktuMulai = (event: any, selectedTime?: Date) => {
     if (selectedTime) {
-      const currentTime = selectedTime.toLocaleTimeString("en-US", {
-        hour12: false,
-        timeZone: "Asia/Singapore",
-      });
+      const hours = selectedTime.getHours().toString().padStart(2, "0");
+      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
+      const currentTime = `${hours}:${minutes}:00`;
       setFormData({ ...formData, waktu_mulai: currentTime });
     }
   };
 
   const onChangeWaktuSelesai = (event: any, selectedTime?: Date) => {
     if (selectedTime) {
-      const currentTime = selectedTime.toLocaleTimeString("en-US", {
-        hour12: false,
-        timeZone: "Asia/Singapore",
-      });
+      const hours = selectedTime.getHours().toString().padStart(2, "0");
+      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
+      const currentTime = `${hours}:${minutes}:00`;
       setFormData({ ...formData, waktu_selesai: currentTime });
     }
   };
