@@ -24,6 +24,13 @@ import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { RootStackParamList } from "../../../types/navigation";
 import { generateUUID, generateDataID } from "../../../utils/uuid";
+import DropdownSelector from "../../../components/DropdownSelector";
+import {
+  getPosDropdownOptions,
+  getSecurityDropdownOptions,
+  POS_OPTIONS,
+} from "../../../utils/dropdown";
+import { useUserBusinessUnit } from "../../../hooks/useUserBusinessUnit";
 
 interface DetailDoMasuk {
   id?: string;
@@ -57,6 +64,8 @@ export default function BarangMasukCreate() {
   const route = useRoute<RouteProp<RootStackParamList, "BarangMasukCreate">>();
   const editData = route.params?.editData;
 
+  const { businessUnit, loading: businessUnitLoading } = useUserBusinessUnit();
+
   const [formData, setFormData] = useState({
     id: editData?.id || undefined,
     ID: editData?.ID || "",
@@ -75,6 +84,9 @@ export default function BarangMasukCreate() {
     pos: editData?.pos || "",
     business_unit: editData?.business_unit || "",
   });
+
+  const securityOptions = getSecurityDropdownOptions(businessUnit);
+  const posOptions = getPosDropdownOptions(businessUnit);
 
   const [detailItems, setDetailItems] = useState<DetailDoMasuk[]>([
     {
@@ -948,12 +960,13 @@ export default function BarangMasukCreate() {
 
             <View style={styles.twoColumnRow}>
               <View style={styles.halfInput}>
-                <Input
-                  placeholder="Nama sekuriti"
+                <DropdownSelector
                   label="Sekuriti"
+                  placeholder="Pilih nama sekuriti"
                   value={formData.sekuriti}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, sekuriti: text })
+                  options={securityOptions}
+                  onSelect={(value) =>
+                    setFormData({ ...formData, sekuriti: value })
                   }
                   leftIcon={{
                     name: "shield",
@@ -961,26 +974,25 @@ export default function BarangMasukCreate() {
                     size: 20,
                     color: "#6c757d",
                   }}
-                  inputContainerStyle={styles.inputContainer}
-                  labelStyle={styles.inputLabel}
+                  disabled={businessUnitLoading}
+                  required={false}
                 />
               </View>
               <View style={styles.halfInput}>
-                <Input
-                  placeholder="Pos/Lokasi"
+                <DropdownSelector
                   label="Pos"
+                  placeholder="Pilih lokasi pos"
                   value={formData.pos}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, pos: text })
-                  }
+                  options={posOptions}
+                  onSelect={(value) => setFormData({ ...formData, pos: value })}
                   leftIcon={{
                     name: "map-pin",
                     type: "feather",
                     size: 20,
                     color: "#6c757d",
                   }}
-                  inputContainerStyle={styles.inputContainer}
-                  labelStyle={styles.inputLabel}
+                  disabled={businessUnitLoading}
+                  required={false}
                 />
               </View>
             </View>
