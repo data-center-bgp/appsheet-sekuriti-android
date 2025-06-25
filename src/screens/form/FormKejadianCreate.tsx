@@ -24,6 +24,12 @@ import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { RootStackParamList } from "../../types/navigation";
 import { generateUUID, generateDataID } from "../../utils/uuid";
+import DropdownSelector from "../../components/DropdownSelector";
+import {
+  getPosDropdownOptions,
+  getSecurityDropdownOptions,
+} from "../../utils/dropdown";
+import { useUserBusinessUnit } from "../../hooks/useUserBusinessUnit";
 
 interface PhotoItem {
   id?: string;
@@ -59,6 +65,10 @@ export default function FormKejadianCreate() {
     sekuriti: editData?.sekuriti || "",
     business_unit: editData?.business_unit || "",
   });
+
+  const { businessUnit, loading: businessUnitLoading } = useUserBusinessUnit();
+  const securityOptions = getSecurityDropdownOptions(businessUnit);
+  const posOptions = getPosDropdownOptions(businessUnit);
 
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
@@ -692,12 +702,13 @@ export default function FormKejadianCreate() {
               <Text style={styles.cardTitle}>Informasi Tambahan</Text>
             </View>
 
-            <Input
-              placeholder="Nama sekuriti yang bertugas"
+            <DropdownSelector
               label="Sekuriti"
+              placeholder="Pilih nama sekuriti"
               value={formData.sekuriti}
-              onChangeText={(text) =>
-                setFormData({ ...formData, sekuriti: text })
+              options={securityOptions}
+              onSelect={(value) =>
+                setFormData({ ...formData, sekuriti: value })
               }
               leftIcon={{
                 name: "shield",
@@ -705,8 +716,8 @@ export default function FormKejadianCreate() {
                 size: 20,
                 color: "#6c757d",
               }}
-              inputContainerStyle={styles.inputContainer}
-              labelStyle={styles.inputLabel}
+              disabled={businessUnitLoading}
+              required={false}
             />
           </Card>
 

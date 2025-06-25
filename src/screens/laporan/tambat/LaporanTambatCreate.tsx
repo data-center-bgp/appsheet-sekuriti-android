@@ -15,6 +15,9 @@ import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { RootStackParamList } from "../../../types/navigation";
 import { generateUUID, generateDataID } from "../../../utils/uuid";
+import DropdownSelector from "../../../components/DropdownSelector";
+import { getSecurityDropdownOptions } from "../../../utils/dropdown";
+import { useUserBusinessUnit } from "../../../hooks/useUserBusinessUnit";
 
 interface UserProfile {
   id: string;
@@ -71,6 +74,9 @@ export default function LaporanTambatCreate() {
     sekuriti: editData?.sekuriti || "",
     business_unit: editData?.business_unit || "",
   });
+
+  const { businessUnit, loading: businessUnitLoading } = useUserBusinessUnit();
+  const securityOptions = getSecurityDropdownOptions(businessUnit);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -669,12 +675,13 @@ export default function LaporanTambatCreate() {
 
             <View style={styles.twoColumnRow}>
               <View style={styles.halfInput}>
-                <Input
-                  placeholder="Nama sekuriti"
+                <DropdownSelector
                   label="Sekuriti"
+                  placeholder="Pilih nama sekuriti"
                   value={formData.sekuriti}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, sekuriti: text })
+                  options={securityOptions}
+                  onSelect={(value) =>
+                    setFormData({ ...formData, sekuriti: value })
                   }
                   leftIcon={{
                     name: "shield",
@@ -682,8 +689,8 @@ export default function LaporanTambatCreate() {
                     size: 20,
                     color: "#6c757d",
                   }}
-                  inputContainerStyle={styles.inputContainer}
-                  labelStyle={styles.inputLabel}
+                  disabled={businessUnitLoading}
+                  required={false}
                 />
               </View>
             </View>
