@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -9,11 +10,13 @@ import {
   Alert,
   Modal,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { Text, Button, Icon, Badge, SearchBar, Card } from "@rneui/themed";
-import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { deletePhotoFromStorage } from "../../utils/photoKejadianHandler";
+import { useDataFilter } from "../../hooks/useDataFilter";
+import { applyBusinessUnitFilter } from "../../utils/queryHelper";
 
 const { width, height } = Dimensions.get("window");
 
@@ -39,6 +42,9 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
+  // Get data filter based on user's business unit
+  const { dataFilter, canSeeAllData, loading: filterLoading } = useDataFilter();
+
   // Photo viewer states
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
@@ -46,20 +52,27 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   useEffect(() => {
-    fetchFormKejadian();
-    const unsubscribe = navigation.addListener("focus", () => {
+    if (!filterLoading) {
       fetchFormKejadian();
+    }
+  }, [dataFilter, filterLoading]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (!filterLoading) {
+        fetchFormKejadian();
+      }
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, filterLoading]);
 
   async function fetchFormKejadian() {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch main data with related photos including storage_path
-      let { data: form_kejadian, error } = await supabase
+      // Fetch main data with related photos including storage_path and business unit filter
+      let query = supabase
         .from("form_kejadian")
         .select(
           `
@@ -68,6 +81,11 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
         `
         )
         .order("created_at", { ascending: false });
+
+      // Apply business unit filter
+      query = applyBusinessUnitFilter(query, dataFilter);
+
+      const { data: form_kejadian, error } = await query;
 
       if (error) throw error;
 
@@ -680,6 +698,18 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
     );
   };
 
+  // Show loading state while determining user permissions
+  if (filterLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#dc3545" />
+          <Text style={styles.loadingText}>Loading permissions...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -708,9 +738,28 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
         </View>
       </View>
 
+      {/* Business Unit Filter Status */}
+      {canSeeAllData && (
+        <View style={styles.masterBadge}>
+          <Icon name="crown" type="feather" size={16} color="#333" />
+          <Text style={styles.masterBadgeText}>
+            Master View - Showing all data from all business units
+          </Text>
+        </View>
+      )}
+
+      {!canSeeAllData && dataFilter && (
+        <View style={styles.filterBadge}>
+          <Icon name="filter" type="feather" size={16} color="#1976d2" />
+          <Text style={styles.filterBadgeText}>
+            Showing data for: {dataFilter.toUpperCase()}
+          </Text>
+        </View>
+      )}
+
       {/* Search Bar */}
       <SearchBar
-        placeholder="Cari berdasarkan ID, kejadian, lokasi, sekuriti..."
+        placeholder="Cari berdasarkan ID, kejadian, lokasi, sekuriti, business unit..."
         onChangeText={setSearchQuery}
         value={searchQuery}
         containerStyle={styles.searchContainer}
@@ -841,6 +890,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#dc3545",
     fontWeight: "500",
+  },
+  masterBadge: {
+    backgroundColor: "#ffd700",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  masterBadgeText: {
+    color: "#333",
+    fontWeight: "600",
+    fontSize: 14,
+    flex: 1,
+  },
+  filterBadge: {
+    backgroundColor: "#e3f2fd",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  filterBadgeText: {
+    color: "#1976d2",
+    fontWeight: "500",
+    fontSize: 14,
+    flex: 1,
   },
   searchContainer: {
     backgroundColor: "transparent",

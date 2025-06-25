@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -6,10 +7,12 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Text, Button, Icon, Badge, SearchBar, Card } from "@rneui/themed";
-import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
+import { useDataFilter } from "../../../hooks/useDataFilter";
+import { applyBusinessUnitFilter } from "../../../utils/queryHelper";
 
 interface OrangMasukItem {
   id: string;
@@ -33,20 +36,31 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
+  // Get data filter based on user's business unit
+  const { dataFilter, canSeeAllData, loading: filterLoading } = useDataFilter();
+
   useEffect(() => {
-    fetchOrangMasuk();
-    const unsubscribe = navigation.addListener("focus", () => {
+    if (!filterLoading) {
       fetchOrangMasuk();
+    }
+  }, [dataFilter, filterLoading]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (!filterLoading) {
+        fetchOrangMasuk();
+      }
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, filterLoading]);
 
   async function fetchOrangMasuk() {
     try {
       setLoading(true);
       setError(null);
 
-      let { data: orang_masuk, error } = await supabase
+      // Start building the query with business unit filter
+      let query = supabase
         .from("orang_masuk")
         .select(
           `
@@ -55,6 +69,11 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
         `
         )
         .order("created_at", { ascending: false });
+
+      // Apply business unit filter
+      query = applyBusinessUnitFilter(query, dataFilter);
+
+      const { data: orang_masuk, error } = await query;
 
       if (error) throw error;
 
@@ -290,6 +309,9 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
                   Dibuat: {formatDate(item.created_at)}
                 </Text>
                 <Text style={styles.metadataText}>
+                  Tanggal Masuk: {formatDate(item.tanggal)}
+                </Text>
+                <Text style={styles.metadataText}>
                   Jam: {formatTime(item.jam)}
                 </Text>
                 {item.business_unit && (
@@ -330,6 +352,18 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
     );
   };
 
+  // Show loading state while determining user permissions
+  if (filterLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#fd7e14" />
+          <Text style={styles.loadingText}>Loading permissions...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -349,9 +383,28 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
         </View>
       </View>
 
+      {/* Business Unit Filter Status */}
+      {canSeeAllData && (
+        <View style={styles.masterBadge}>
+          <Icon name="crown" type="feather" size={16} color="#333" />
+          <Text style={styles.masterBadgeText}>
+            Master View - Showing all data from all business units
+          </Text>
+        </View>
+      )}
+
+      {!canSeeAllData && dataFilter && (
+        <View style={styles.filterBadge}>
+          <Icon name="filter" type="feather" size={16} color="#1976d2" />
+          <Text style={styles.filterBadgeText}>
+            Showing data for: {dataFilter.toUpperCase()}
+          </Text>
+        </View>
+      )}
+
       {/* Search Bar */}
       <SearchBar
-        placeholder="Cari berdasarkan ID, ID Card, nomor ID, keterangan..."
+        placeholder="Cari berdasarkan ID, ID Card, nomor ID, keterangan, business unit..."
         onChangeText={setSearchQuery}
         value={searchQuery}
         containerStyle={styles.searchContainer}
@@ -474,6 +527,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#fd7e14",
     fontWeight: "500",
+  },
+  masterBadge: {
+    backgroundColor: "#ffd700",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  masterBadgeText: {
+    color: "#333",
+    fontWeight: "600",
+    fontSize: 14,
+    flex: 1,
+  },
+  filterBadge: {
+    backgroundColor: "#e3f2fd",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  filterBadgeText: {
+    color: "#1976d2",
+    fontWeight: "500",
+    fontSize: 14,
+    flex: 1,
   },
   searchContainer: {
     backgroundColor: "transparent",

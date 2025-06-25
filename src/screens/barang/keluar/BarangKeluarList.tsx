@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -9,11 +10,13 @@ import {
   Alert,
   Modal,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { Text, Button, Icon, Badge, SearchBar, Card } from "@rneui/themed";
-import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { deletePhotoFromStorage } from "../../../utils/photoDoKeluarHandler";
+import { useDataFilter } from "../../../hooks/useDataFilter";
+import { applyBusinessUnitFilter } from "../../../utils/queryHelper";
 
 const { width, height } = Dimensions.get("window");
 
@@ -45,6 +48,9 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
+  // Get data filter based on user's business unit
+  const { dataFilter, canSeeAllData, loading: filterLoading } = useDataFilter();
+
   // Photo viewer states
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
@@ -52,20 +58,27 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   useEffect(() => {
-    fetchBarangKeluar();
-    const unsubscribe = navigation.addListener("focus", () => {
+    if (!filterLoading) {
       fetchBarangKeluar();
+    }
+  }, [dataFilter, filterLoading]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (!filterLoading) {
+        fetchBarangKeluar();
+      }
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, filterLoading]);
 
   async function fetchBarangKeluar() {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch main data with related data including storage_path
-      let { data: barang_keluar, error } = await supabase
+      // Start building the query with business unit filter
+      let query = supabase
         .from("barang_keluar")
         .select(
           `
@@ -76,6 +89,11 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
         `
         )
         .order("created_at", { ascending: false });
+
+      // Apply business unit filter
+      query = applyBusinessUnitFilter(query, dataFilter);
+
+      const { data: barang_keluar, error } = await query;
 
       if (error) throw error;
 
@@ -318,7 +336,7 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
         {item.detail_do_keluar.map((detail, index) => (
           <View key={detail.id || index} style={styles.detailItem}>
             <View style={styles.detailItemHeader}>
-              <Icon name="box" type="feather" size={14} color="#007bff" />
+              <Icon name="box" type="feather" size={14} color="#dc3545" />
               <Text style={styles.detailItemName}>{detail.nama_barang}</Text>
             </View>
             <Text style={styles.detailItemQuantity}>
@@ -751,6 +769,18 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
     );
   };
 
+  // Show loading state while determining user permissions
+  if (filterLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#dc3545" />
+          <Text style={styles.loadingText}>Loading permissions...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -773,6 +803,25 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
           </View>
         </View>
       </View>
+
+      {/* Business Unit Filter Status */}
+      {canSeeAllData && (
+        <View style={styles.masterBadge}>
+          <Icon name="crown" type="feather" size={16} color="#333" />
+          <Text style={styles.masterBadgeText}>
+            Master View - Showing all data from all business units
+          </Text>
+        </View>
+      )}
+
+      {!canSeeAllData && dataFilter && (
+        <View style={styles.filterBadge}>
+          <Icon name="filter" type="feather" size={16} color="#1976d2" />
+          <Text style={styles.filterBadgeText}>
+            Showing data for: {dataFilter.toUpperCase()}
+          </Text>
+        </View>
+      )}
 
       {/* Search Bar */}
       <SearchBar
@@ -902,6 +951,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#dc3545",
     fontWeight: "500",
+  },
+  masterBadge: {
+    backgroundColor: "#ffd700",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  masterBadgeText: {
+    color: "#333",
+    fontWeight: "600",
+    fontSize: 14,
+    flex: 1,
+  },
+  filterBadge: {
+    backgroundColor: "#e3f2fd",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  filterBadgeText: {
+    color: "#1976d2",
+    fontWeight: "500",
+    fontSize: 14,
+    flex: 1,
   },
   searchContainer: {
     backgroundColor: "transparent",

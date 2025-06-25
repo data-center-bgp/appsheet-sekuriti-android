@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -9,11 +10,13 @@ import {
   Alert,
   Modal,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { Text, Button, Icon, Badge, SearchBar, Card } from "@rneui/themed";
-import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { deletePhotoFromStorage } from "../../../utils/photoDoMasukHandler";
+import { useDataFilter } from "../../../hooks/useDataFilter";
+import { applyBusinessUnitFilter } from "../../../utils/queryHelper";
 
 const { width, height } = Dimensions.get("window");
 
@@ -44,6 +47,9 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
+  // Get data filter based on user's business unit
+  const { dataFilter, canSeeAllData, loading: filterLoading } = useDataFilter();
+
   // Photo viewer states
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
@@ -51,24 +57,31 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   useEffect(() => {
-    fetchBarangMasuk();
+    if (!filterLoading) {
+      fetchData();
+    }
+  }, [dataFilter, filterLoading]);
+
+  useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
-      fetchBarangMasuk();
+      if (!filterLoading) {
+        fetchData();
+      }
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, filterLoading]);
 
-  async function fetchBarangMasuk() {
+  const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch main data with related data including storage_path
-      let { data: barang_masuk, error } = await supabase
+      // Start building the query
+      let query = supabase
         .from("barang_masuk")
         .select(
           `
-          id, ID, nomor_do, tanggal, jam, nama_pembawa_barang, nama_pemilik_barang, 
+          id, ID, nomor_do, tanggal, jam, nama_pembawa_barang, nama_pemilik_barang,
           keterangan, sekuriti, pos, business_unit, created_at,
           detail_do_masuk(id, nama_barang, jumlah, satuan),
           foto_do_masuk(id, foto, serial_number, storage_path)
@@ -76,29 +89,44 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
         )
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      // Apply business unit filter
+      query = applyBusinessUnitFilter(query, dataFilter);
 
-      if (barang_masuk) {
-        // Add counts to each item
-        const itemsWithCounts = barang_masuk.map((item) => ({
+      const { data: result, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      if (result) {
+        // Add counts to each item and convert new structure to old format for compatibility
+        const itemsWithCounts = result.map((item) => ({
           ...item,
           detail_count: item.detail_do_masuk?.length || 0,
           foto_count: item.foto_do_masuk?.length || 0,
+          // Convert new structure to old for compatibility with existing code
+          detail_do_masuk: item.detail_do_masuk || [],
+          foto_do_masuk:
+            item.foto_do_masuk?.map((photo) => ({
+              id: photo.id,
+              foto: photo.storage_path,
+              storage_path: photo.storage_path,
+            })) || [],
         }));
         setBarangMasuk(itemsWithCounts);
       }
-    } catch (error: any) {
-      console.error("Fetch error:", error);
-      setError(error.message);
+    } catch (err) {
+      console.error("Error fetching barang masuk:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchBarangMasuk();
+    await fetchData();
   };
 
   const toggleExpanded = (itemId: string) => {
@@ -173,7 +201,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
                 await Promise.all(deletePhotoPromises);
               }
 
-              // Delete related records from database
+              // Delete related records from database - use new table names
               await supabase
                 .from("detail_do_masuk")
                 .delete()
@@ -192,7 +220,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
 
               if (error) throw error;
 
-              await fetchBarangMasuk();
+              await fetchData();
 
               Alert.alert("Berhasil", "Data berhasil dihapus");
             } catch (error: any) {
@@ -229,16 +257,16 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
               }
             }
 
-            // Delete from database
+            // Delete from database - use new table name
             const { error } = await supabase
-              .from("foto_do_masuk")
+              .from("barang_masuk_photos")
               .delete()
               .eq("id", photoId);
 
             if (error) throw error;
 
-            // Refresh the specific item's photos
-            await fetchBarangMasuk();
+            // Refresh the data
+            await fetchData();
 
             // Close modal if this was the current photo
             if (photoGallery.length <= 1) {
@@ -360,13 +388,6 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
                 <View style={styles.thumbnailOverlay}>
                   <Icon name="eye" type="feather" size={16} color="white" />
                 </View>
-                {foto.serial_number && (
-                  <View style={styles.serialBadge}>
-                    <Text style={styles.serialBadgeText} numberOfLines={1}>
-                      {foto.serial_number}
-                    </Text>
-                  </View>
-                )}
                 {/* Storage indicator */}
                 <View style={styles.storageBadge}>
                   <Icon name="cloud" type="feather" size={8} color="white" />
@@ -492,15 +513,6 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
 
             {/* Photo Info */}
             <View style={styles.photoInfo}>
-              {currentPhoto?.serial_number && (
-                <View style={styles.photoInfoItem}>
-                  <Icon name="hash" type="feather" size={16} color="#ccc" />
-                  <Text style={styles.photoInfoText}>
-                    Serial: {currentPhoto.serial_number}
-                  </Text>
-                </View>
-              )}
-
               {currentPhoto?.storage_path && (
                 <View style={styles.photoInfoItem}>
                   <Icon name="cloud" type="feather" size={16} color="#ccc" />
@@ -735,6 +747,18 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
     );
   };
 
+  // Show loading state while determining user permissions
+  if (filterLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#007bff" />
+          <Text style={styles.loadingText}>Loading permissions...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -757,6 +781,25 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
           </View>
         </View>
       </View>
+
+      {/* Business Unit Filter Status */}
+      {canSeeAllData && (
+        <View style={styles.masterBadge}>
+          <Icon name="crown" type="feather" size={16} color="#333" />
+          <Text style={styles.masterBadgeText}>
+            Master View - Showing all data from all business units
+          </Text>
+        </View>
+      )}
+
+      {!canSeeAllData && dataFilter && (
+        <View style={styles.filterBadge}>
+          <Icon name="filter" type="feather" size={16} color="#1976d2" />
+          <Text style={styles.filterBadgeText}>
+            Showing data for: {dataFilter.toUpperCase()}
+          </Text>
+        </View>
+      )}
 
       {/* Search Bar */}
       <SearchBar
@@ -813,7 +856,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
             <Text style={styles.errorText}>{error}</Text>
             <Button
               title="Coba Lagi"
-              onPress={fetchBarangMasuk}
+              onPress={fetchData}
               buttonStyle={styles.retryButton}
               type="outline"
             />
@@ -886,6 +929,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#007bff",
     fontWeight: "500",
+  },
+  masterBadge: {
+    backgroundColor: "#ffd700",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  masterBadgeText: {
+    color: "#333",
+    fontWeight: "600",
+    fontSize: 14,
+    flex: 1,
+  },
+  filterBadge: {
+    backgroundColor: "#e3f2fd",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  filterBadgeText: {
+    color: "#1976d2",
+    fontWeight: "500",
+    fontSize: 14,
+    flex: 1,
   },
   searchContainer: {
     backgroundColor: "transparent",
@@ -1144,21 +1221,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "center",
     alignItems: "center",
-  },
-  serialBadge: {
-    position: "absolute",
-    bottom: 4,
-    left: 4,
-    backgroundColor: "rgba(0, 123, 255, 0.9)",
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-    maxWidth: 70,
-  },
-  serialBadgeText: {
-    color: "white",
-    fontSize: 8,
-    fontWeight: "500",
   },
   storageBadge: {
     position: "absolute",

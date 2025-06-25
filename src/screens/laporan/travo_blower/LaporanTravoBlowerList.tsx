@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -6,10 +7,12 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Text, Button, Icon, Badge, SearchBar, Card } from "@rneui/themed";
-import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
+import { useDataFilter } from "../../../hooks/useDataFilter";
+import { applyBusinessUnitFilter } from "../../../utils/queryHelper";
 
 interface LaporanTravoBlowerItem {
   id: string;
@@ -40,20 +43,31 @@ export default function LaporanTravoBlowerList({
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
+  // Get data filter based on user's business unit
+  const { dataFilter, canSeeAllData, loading: filterLoading } = useDataFilter();
+
   useEffect(() => {
-    fetchLaporanTravoBlower();
-    const unsubscribe = navigation.addListener("focus", () => {
+    if (!filterLoading) {
       fetchLaporanTravoBlower();
+    }
+  }, [dataFilter, filterLoading]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (!filterLoading) {
+        fetchLaporanTravoBlower();
+      }
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, filterLoading]);
 
   async function fetchLaporanTravoBlower() {
     try {
       setLoading(true);
       setError(null);
 
-      let { data: laporan_travo_blower, error } = await supabase
+      // Start building the query with business unit filter
+      let query = supabase
         .from("laporan_travo_blower")
         .select(
           `
@@ -62,6 +76,11 @@ export default function LaporanTravoBlowerList({
         `
         )
         .order("created_at", { ascending: false });
+
+      // Apply business unit filter
+      query = applyBusinessUnitFilter(query, dataFilter);
+
+      const { data: laporan_travo_blower, error } = await query;
 
       if (error) throw error;
 
@@ -290,7 +309,7 @@ export default function LaporanTravoBlowerList({
                   Dibuat: {formatDate(item.created_at)}
                 </Text>
                 <Text style={styles.metadataText}>
-                  Tanggal: {formatDate(item.tanggal)}
+                  Tanggal Laporan: {formatDate(item.tanggal)}
                 </Text>
                 <Text style={styles.metadataText}>
                   Jam: {formatTime(item.jam)}
@@ -338,6 +357,18 @@ export default function LaporanTravoBlowerList({
     );
   };
 
+  // Show loading state while determining user permissions
+  if (filterLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#20c997" />
+          <Text style={styles.loadingText}>Loading permissions...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -357,9 +388,28 @@ export default function LaporanTravoBlowerList({
         </View>
       </View>
 
+      {/* Business Unit Filter Status */}
+      {canSeeAllData && (
+        <View style={styles.masterBadge}>
+          <Icon name="crown" type="feather" size={16} color="#333" />
+          <Text style={styles.masterBadgeText}>
+            Master View - Showing all data from all business units
+          </Text>
+        </View>
+      )}
+
+      {!canSeeAllData && dataFilter && (
+        <View style={styles.filterBadge}>
+          <Icon name="filter" type="feather" size={16} color="#1976d2" />
+          <Text style={styles.filterBadgeText}>
+            Showing data for: {dataFilter.toUpperCase()}
+          </Text>
+        </View>
+      )}
+
       {/* Search Bar */}
       <SearchBar
-        placeholder="Cari berdasarkan ID, jenis, posisi, status..."
+        placeholder="Cari berdasarkan ID, jenis, posisi, status, business unit..."
         onChangeText={setSearchQuery}
         value={searchQuery}
         containerStyle={styles.searchContainer}
@@ -482,6 +532,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#20c997",
     fontWeight: "500",
+  },
+  masterBadge: {
+    backgroundColor: "#ffd700",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  masterBadgeText: {
+    color: "#333",
+    fontWeight: "600",
+    fontSize: 14,
+    flex: 1,
+  },
+  filterBadge: {
+    backgroundColor: "#e3f2fd",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  filterBadgeText: {
+    color: "#1976d2",
+    fontWeight: "500",
+    fontSize: 14,
+    flex: 1,
   },
   searchContainer: {
     backgroundColor: "transparent",
