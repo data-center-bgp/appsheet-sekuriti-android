@@ -13,6 +13,11 @@ import { Text, Button, Icon, Badge, SearchBar, Card } from "@rneui/themed";
 import { supabase } from "../../../lib/supabase";
 import { useDataFilter } from "../../../hooks/useDataFilter";
 import { applyBusinessUnitFilter } from "../../../utils/queryHelper";
+import DateFilter, { DateFilterState } from "../../../components/DateFilter";
+import {
+  applyDateFilter,
+  getDateFilterSummary,
+} from "../../../utils/dateFilter";
 
 // Pagination constants
 const ITEMS_PER_PAGE = 10;
@@ -50,6 +55,13 @@ export default function LaporanTambatList({ navigation }: { navigation: any }) {
   const [totalItems, setTotalItems] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // Date filter state
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({
+    startDate: null,
+    endDate: null,
+    isActive: false,
+  });
+
   // Get data filter based on user's business unit
   const { dataFilter, canSeeAllData, loading: filterLoading } = useDataFilter();
 
@@ -57,7 +69,7 @@ export default function LaporanTambatList({ navigation }: { navigation: any }) {
     if (!filterLoading) {
       resetPaginationAndFetch();
     }
-  }, [dataFilter, filterLoading, searchQuery]);
+  }, [dataFilter, filterLoading, searchQuery, dateFilter]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
@@ -108,6 +120,9 @@ export default function LaporanTambatList({ navigation }: { navigation: any }) {
 
       // Apply business unit filter
       query = applyBusinessUnitFilter(query, dataFilter);
+
+      // Apply date filter
+      query = applyDateFilter(query, dateFilter, "tanggal");
 
       // Apply search filter if there's a search query
       if (searchQuery.trim()) {
@@ -606,6 +621,16 @@ export default function LaporanTambatList({ navigation }: { navigation: any }) {
         </View>
       )}
 
+      {/* Date Filter Status */}
+      {dateFilter.isActive && (
+        <View style={styles.dateFilterBadge}>
+          <Icon name="calendar" type="feather" size={16} color="#007bff" />
+          <Text style={styles.dateFilterBadgeText}>
+            {getDateFilterSummary(dateFilter)}
+          </Text>
+        </View>
+      )}
+
       {/* Search Bar */}
       <SearchBar
         placeholder="Cari berdasarkan ID, kapal, perusahaan, kegiatan, business unit..."
@@ -618,6 +643,13 @@ export default function LaporanTambatList({ navigation }: { navigation: any }) {
         clearIcon={{ size: 20 }}
         round
         lightTheme
+      />
+
+      {/* Date Filter */}
+      <DateFilter
+        value={dateFilter}
+        onChange={setDateFilter}
+        themeColor="#007bff"
       />
 
       {/* Add Button */}
@@ -1074,5 +1106,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6f42c1",
     fontWeight: "500",
+  },
+  dateFilterBadge: {
+    backgroundColor: "#cce5ff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dateFilterBadgeText: {
+    color: "#007bff",
+    fontWeight: "500",
+    fontSize: 14,
+    flex: 1,
   },
 });

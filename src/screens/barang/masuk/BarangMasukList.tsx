@@ -17,6 +17,11 @@ import { supabase } from "../../../lib/supabase";
 import { deletePhotoFromStorage } from "../../../utils/photoDoMasukHandler";
 import { useDataFilter } from "../../../hooks/useDataFilter";
 import { applyBusinessUnitFilter } from "../../../utils/queryHelper";
+import DateFilter, { DateFilterState } from "../../../components/DateFilter";
+import {
+  applyDateFilter,
+  getDateFilterSummary,
+} from "../../../utils/dateFilter";
 
 const { width, height } = Dimensions.get("window");
 
@@ -58,6 +63,13 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
   // Get data filter based on user's business unit
   const { dataFilter, canSeeAllData, loading: filterLoading } = useDataFilter();
 
+  // Date filter state
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({
+    isActive: false,
+    startDate: null,
+    endDate: null,
+  });
+
   // Photo viewer states
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
@@ -68,7 +80,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
     if (!filterLoading) {
       resetPaginationAndFetch();
     }
-  }, [dataFilter, filterLoading, searchQuery]);
+  }, [dataFilter, filterLoading, searchQuery, dateFilter]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
@@ -119,6 +131,9 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
       // Apply business unit filter
       query = applyBusinessUnitFilter(query, dataFilter);
 
+      // Apply date filter
+      query = applyDateFilter(query, dateFilter, "tanggal");
+
       // Apply search filter if there's a search query
       if (searchQuery.trim()) {
         query = query.or(
@@ -146,7 +161,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
           foto_do_masuk:
             item.foto_do_masuk?.map((photo) => ({
               id: photo.id,
-              foto: photo.storage_path,
+              foto: photo.foto,
               storage_path: photo.storage_path,
             })) || [],
         }));
@@ -986,6 +1001,16 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
         </View>
       )}
 
+      {/* Date Filter Status */}
+      {dateFilter.isActive && (
+        <View style={styles.dateFilterBadge}>
+          <Icon name="calendar" type="feather" size={16} color="#007bff" />
+          <Text style={styles.dateFilterBadgeText}>
+            {getDateFilterSummary(dateFilter)}
+          </Text>
+        </View>
+      )}
+
       {/* Search Bar */}
       <SearchBar
         placeholder="Cari berdasarkan ID, DO, nama, business unit..."
@@ -998,6 +1023,13 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
         clearIcon={{ size: 20 }}
         round
         lightTheme
+      />
+
+      {/* Date Filter */}
+      <DateFilter
+        value={dateFilter}
+        onChange={setDateFilter}
+        themeColor="#007bff"
       />
 
       {/* Add Button */}
@@ -1677,5 +1709,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#007bff",
     fontWeight: "500",
+  },
+  dateFilterBadge: {
+    backgroundColor: "#cce5ff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dateFilterBadgeText: {
+    color: "#007bff",
+    fontWeight: "500",
+    fontSize: 14,
+    flex: 1,
   },
 });
