@@ -20,6 +20,9 @@ import { applyBusinessUnitFilter } from "../../utils/queryHelper";
 
 const { width, height } = Dimensions.get("window");
 
+// Pagination constants
+const ITEMS_PER_PAGE = 10;
+
 interface FormKejadianItem {
   id: string;
   ID: string;
@@ -42,6 +45,11 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   // Get data filter based on user's business unit
   const { dataFilter, canSeeAllData, loading: filterLoading } = useDataFilter();
 
@@ -53,62 +61,119 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
 
   useEffect(() => {
     if (!filterLoading) {
-      fetchFormKejadian();
+      resetPaginationAndFetch();
     }
-  }, [dataFilter, filterLoading]);
+  }, [dataFilter, filterLoading, searchQuery]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
       if (!filterLoading) {
-        fetchFormKejadian();
+        resetPaginationAndFetch();
       }
     });
     return unsubscribe;
   }, [navigation, filterLoading]);
 
-  async function fetchFormKejadian() {
+  const resetPaginationAndFetch = () => {
+    setCurrentPage(1);
+    setFormKejadian([]);
+    fetchData(1, true);
+  };
+
+  const fetchData = async (
+    page: number = currentPage,
+    replace: boolean = false
+  ) => {
     try {
-      setLoading(true);
+      if (page === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
       setError(null);
 
-      // Fetch main data with related photos including storage_path and business unit filter
+      // Calculate offset for pagination
+      const from = (page - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+
+      // Start building the query
       let query = supabase
         .from("form_kejadian")
         .select(
           `
           id, ID, tanggal, jam, kejadian, lokasi, sekuriti, business_unit, created_at,
           foto_kejadian(id, foto, storage_path)
-        `
+        `,
+          { count: "exact" }
         )
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       // Apply business unit filter
       query = applyBusinessUnitFilter(query, dataFilter);
 
-      const { data: form_kejadian, error } = await query;
+      // Apply search filter if there's a search query
+      if (searchQuery.trim()) {
+        query = query.or(
+          `ID.ilike.%${searchQuery}%,kejadian.ilike.%${searchQuery}%,lokasi.ilike.%${searchQuery}%,sekuriti.ilike.%${searchQuery}%,business_unit.ilike.%${searchQuery}%`
+        );
+      }
 
-      if (error) throw error;
+      const { data: result, error, count } = await query;
 
-      if (form_kejadian) {
+      if (error) {
+        throw error;
+      }
+
+      if (result) {
+        // Set total count for pagination
+        setTotalItems(count || 0);
+
         // Add counts to each item
-        const itemsWithCounts = form_kejadian.map((item) => ({
+        const itemsWithCounts = result.map((item) => ({
           ...item,
           foto_count: item.foto_kejadian?.length || 0,
         }));
-        setFormKejadian(itemsWithCounts);
+
+        if (replace || page === 1) {
+          setFormKejadian(itemsWithCounts);
+        } else {
+          setFormKejadian((prev) => [...prev, ...itemsWithCounts]);
+        }
       }
-    } catch (error: any) {
-      console.error("Fetch error:", error);
-      setError(error.message);
+    } catch (err) {
+      console.error("Error fetching form kejadian:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
-  }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchFormKejadian();
+    resetPaginationAndFetch();
+  };
+
+  const loadMoreData = () => {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    if (currentPage < totalPages && !loadingMore) {
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      fetchData(nextPage, false);
+    }
+  };
+
+  const goToPage = (page: number) => {
+    if (
+      page !== currentPage &&
+      page >= 1 &&
+      page <= Math.ceil(totalItems / ITEMS_PER_PAGE)
+    ) {
+      setCurrentPage(page);
+      fetchData(page, true);
+    }
   };
 
   const toggleExpanded = (itemId: string) => {
@@ -197,7 +262,8 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
 
               if (error) throw error;
 
-              await fetchFormKejadian();
+              // Refresh current page
+              await fetchData(currentPage, true);
 
               Alert.alert("Berhasil", "Data berhasil dihapus");
             } catch (error: any) {
@@ -242,8 +308,8 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
 
             if (error) throw error;
 
-            // Refresh the data
-            await fetchFormKejadian();
+            // Refresh the current page
+            await fetchData(currentPage, true);
 
             // Close modal if this was the current photo
             if (photoGallery.length <= 1) {
@@ -274,18 +340,6 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
       },
     ]);
   };
-
-  const filteredData = formKejadian.filter((item) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      (item.ID && item.ID.toLowerCase().includes(query)) ||
-      (item.kejadian && item.kejadian.toLowerCase().includes(query)) ||
-      (item.lokasi && item.lokasi.toLowerCase().includes(query)) ||
-      (item.sekuriti && item.sekuriti.toLowerCase().includes(query)) ||
-      (item.business_unit && item.business_unit.toLowerCase().includes(query))
-    );
-  });
 
   const formatDate = (dateString: string) => {
     try {
@@ -503,6 +557,141 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
     );
   };
 
+  // Pagination Component
+  const renderPagination = () => {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    if (totalPages <= 1) return null;
+
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <View style={styles.paginationContainer}>
+        <View style={styles.paginationInfo}>
+          <Text style={styles.paginationText}>
+            Halaman {currentPage} dari {totalPages} ({totalItems} total item)
+          </Text>
+        </View>
+
+        <View style={styles.paginationControls}>
+          {/* First Page */}
+          {currentPage > 1 && (
+            <TouchableOpacity
+              style={styles.pageButton}
+              onPress={() => goToPage(1)}
+            >
+              <Icon
+                name="chevrons-left"
+                type="feather"
+                size={16}
+                color="#dc3545"
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Previous Page */}
+          {currentPage > 1 && (
+            <TouchableOpacity
+              style={styles.pageButton}
+              onPress={() => goToPage(currentPage - 1)}
+            >
+              <Icon
+                name="chevron-left"
+                type="feather"
+                size={16}
+                color="#dc3545"
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Page Numbers */}
+          {pages.map((page) => (
+            <TouchableOpacity
+              key={page}
+              style={[
+                styles.pageButton,
+                page === currentPage && styles.activePageButton,
+              ]}
+              onPress={() => goToPage(page)}
+            >
+              <Text
+                style={[
+                  styles.pageButtonText,
+                  page === currentPage && styles.activePageButtonText,
+                ]}
+              >
+                {page}
+              </Text>
+            </TouchableOpacity>
+          ))}
+
+          {/* Next Page */}
+          {currentPage < totalPages && (
+            <TouchableOpacity
+              style={styles.pageButton}
+              onPress={() => goToPage(currentPage + 1)}
+            >
+              <Icon
+                name="chevron-right"
+                type="feather"
+                size={16}
+                color="#dc3545"
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Last Page */}
+          {currentPage < totalPages && (
+            <TouchableOpacity
+              style={styles.pageButton}
+              onPress={() => goToPage(totalPages)}
+            >
+              <Icon
+                name="chevrons-right"
+                type="feather"
+                size={16}
+                color="#dc3545"
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Load More Button (Alternative to pagination) */}
+        {currentPage < totalPages && (
+          <TouchableOpacity
+            style={styles.loadMoreButton}
+            onPress={loadMoreData}
+            disabled={loadingMore}
+          >
+            {loadingMore ? (
+              <ActivityIndicator size="small" color="#dc3545" />
+            ) : (
+              <Icon
+                name="chevron-down"
+                type="feather"
+                size={16}
+                color="#dc3545"
+              />
+            )}
+            <Text style={styles.loadMoreText}>
+              {loadingMore ? "Memuat..." : "Muat Lebih Banyak"}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   const renderItem = (item: FormKejadianItem, index: number) => {
     const isExpanded = expandedItems.has(item.id);
 
@@ -717,8 +906,8 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
         <Text style={styles.headerTitle}>Laporan Kejadian</Text>
         <View style={styles.headerStats}>
           <Text style={styles.headerSubtitle}>
-            {filteredData.length}{" "}
-            {filteredData.length === 1 ? "report" : "reports"}
+            {formKejadian.length} dari {totalItems}{" "}
+            {totalItems === 1 ? "report" : "reports"}
           </Text>
           <View style={styles.totalStats}>
             <Icon
@@ -728,7 +917,7 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
               color="#dc3545"
             />
             <Text style={styles.totalStatsText}>
-              {filteredData.reduce(
+              {formKejadian.reduce(
                 (sum, item) => sum + (item.foto_count || 0),
                 0
               )}{" "}
@@ -741,7 +930,7 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
       {/* Business Unit Filter Status */}
       {canSeeAllData && (
         <View style={styles.masterBadge}>
-          <Icon name="crown" type="feather" size={16} color="#333" />
+          <Icon name="star" type="feather" size={16} color="#333" />
           <Text style={styles.masterBadgeText}>
             Master View - Showing all data from all business units
           </Text>
@@ -812,12 +1001,12 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
             <Text style={styles.errorText}>{error}</Text>
             <Button
               title="Coba Lagi"
-              onPress={fetchFormKejadian}
+              onPress={() => fetchData(currentPage, true)}
               buttonStyle={styles.retryButton}
               type="outline"
             />
           </View>
-        ) : filteredData.length === 0 ? (
+        ) : formKejadian.length === 0 ? (
           <View style={styles.centerContainer}>
             <Icon
               name="alert-triangle"
@@ -843,7 +1032,8 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
           </View>
         ) : (
           <View style={styles.listContainer}>
-            {filteredData.map((item, index) => renderItem(item, index))}
+            {formKejadian.map((item, index) => renderItem(item, index))}
+            {renderPagination()}
           </View>
         )}
       </ScrollView>
@@ -1332,5 +1522,68 @@ const styles = StyleSheet.create({
     backgroundColor: "#dc3545",
     marginTop: 20,
     paddingHorizontal: 32,
+  },
+  // Pagination Styles
+  paginationContainer: {
+    marginTop: 20,
+    marginBottom: 10,
+    paddingHorizontal: 16,
+  },
+  paginationInfo: {
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  paginationText: {
+    fontSize: 14,
+    color: "#6c757d",
+    textAlign: "center",
+  },
+  paginationControls: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  pageButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#dee2e6",
+    backgroundColor: "white",
+    minWidth: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activePageButton: {
+    backgroundColor: "#dc3545",
+    borderColor: "#dc3545",
+  },
+  pageButtonText: {
+    fontSize: 14,
+    color: "#dc3545",
+    fontWeight: "500",
+  },
+  activePageButtonText: {
+    color: "white",
+  },
+  loadMoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: "white",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#dee2e6",
+    gap: 8,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    color: "#dc3545",
+    fontWeight: "500",
   },
 });

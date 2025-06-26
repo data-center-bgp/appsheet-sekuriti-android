@@ -14,6 +14,9 @@ import { supabase } from "../../../lib/supabase";
 import { useDataFilter } from "../../../hooks/useDataFilter";
 import { applyBusinessUnitFilter } from "../../../utils/queryHelper";
 
+// Pagination constants
+const ITEMS_PER_PAGE = 10;
+
 interface OrangMasukItem {
   id: string;
   ID: string;
@@ -36,62 +39,121 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   // Get data filter based on user's business unit
   const { dataFilter, canSeeAllData, loading: filterLoading } = useDataFilter();
 
   useEffect(() => {
     if (!filterLoading) {
-      fetchOrangMasuk();
+      resetPaginationAndFetch();
     }
-  }, [dataFilter, filterLoading]);
+  }, [dataFilter, filterLoading, searchQuery]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
       if (!filterLoading) {
-        fetchOrangMasuk();
+        resetPaginationAndFetch();
       }
     });
     return unsubscribe;
   }, [navigation, filterLoading]);
 
-  async function fetchOrangMasuk() {
+  const resetPaginationAndFetch = () => {
+    setCurrentPage(1);
+    setOrangMasuk([]);
+    fetchData(1, true);
+  };
+
+  const fetchData = async (
+    page: number = currentPage,
+    replace: boolean = false
+  ) => {
     try {
-      setLoading(true);
+      if (page === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
       setError(null);
 
-      // Start building the query with business unit filter
+      // Calculate offset for pagination
+      const from = (page - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+
+      // Start building the query
       let query = supabase
         .from("orang_masuk")
         .select(
           `
           id, ID, tanggal, jam, id_card, nomor_id_card, keterangan, 
           sekuriti, pos, business_unit, created_at
-        `
+        `,
+          { count: "exact" }
         )
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       // Apply business unit filter
       query = applyBusinessUnitFilter(query, dataFilter);
 
-      const { data: orang_masuk, error } = await query;
+      // Apply search filter if there's a search query
+      if (searchQuery.trim()) {
+        query = query.or(
+          `ID.ilike.%${searchQuery}%,id_card.ilike.%${searchQuery}%,nomor_id_card.ilike.%${searchQuery}%,keterangan.ilike.%${searchQuery}%,sekuriti.ilike.%${searchQuery}%,pos.ilike.%${searchQuery}%,business_unit.ilike.%${searchQuery}%`
+        );
+      }
+
+      const { data: result, error, count } = await query;
 
       if (error) throw error;
 
-      if (orang_masuk) {
-        setOrangMasuk(orang_masuk);
+      if (result) {
+        // Set total count for pagination
+        setTotalItems(count || 0);
+
+        if (replace || page === 1) {
+          setOrangMasuk(result);
+        } else {
+          setOrangMasuk((prev) => [...prev, ...result]);
+        }
       }
-    } catch (error: any) {
-      console.error("Fetch error:", error);
-      setError(error.message);
+    } catch (err) {
+      console.error("Error fetching orang masuk:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
-  }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchOrangMasuk();
+    resetPaginationAndFetch();
+  };
+
+  const loadMoreData = () => {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    if (currentPage < totalPages && !loadingMore) {
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      fetchData(nextPage, false);
+    }
+  };
+
+  const goToPage = (page: number) => {
+    if (
+      page !== currentPage &&
+      page >= 1 &&
+      page <= Math.ceil(totalItems / ITEMS_PER_PAGE)
+    ) {
+      setCurrentPage(page);
+      fetchData(page, true);
+    }
   };
 
   const toggleExpanded = (itemId: string) => {
@@ -125,7 +187,8 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
 
               if (error) throw error;
 
-              await fetchOrangMasuk();
+              // Refresh current page
+              await fetchData(currentPage, true);
 
               Alert.alert("Berhasil", "Data berhasil dihapus");
             } catch (error: any) {
@@ -139,21 +202,6 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
       ]
     );
   };
-
-  const filteredData = orangMasuk.filter((item) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      (item.ID && item.ID.toLowerCase().includes(query)) ||
-      (item.id_card && item.id_card.toLowerCase().includes(query)) ||
-      (item.nomor_id_card &&
-        item.nomor_id_card.toLowerCase().includes(query)) ||
-      (item.keterangan && item.keterangan.toLowerCase().includes(query)) ||
-      (item.sekuriti && item.sekuriti.toLowerCase().includes(query)) ||
-      (item.pos && item.pos.toLowerCase().includes(query)) ||
-      (item.business_unit && item.business_unit.toLowerCase().includes(query))
-    );
-  });
 
   const formatDate = (dateString: string) => {
     try {
@@ -171,6 +219,141 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
   const formatTime = (timeString: string) => {
     if (!timeString) return "-";
     return timeString.substring(0, 5); // Show only HH:MM
+  };
+
+  // Pagination Component
+  const renderPagination = () => {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    if (totalPages <= 1) return null;
+
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <View style={styles.paginationContainer}>
+        <View style={styles.paginationInfo}>
+          <Text style={styles.paginationText}>
+            Halaman {currentPage} dari {totalPages} ({totalItems} total item)
+          </Text>
+        </View>
+
+        <View style={styles.paginationControls}>
+          {/* First Page */}
+          {currentPage > 1 && (
+            <TouchableOpacity
+              style={styles.pageButton}
+              onPress={() => goToPage(1)}
+            >
+              <Icon
+                name="chevrons-left"
+                type="feather"
+                size={16}
+                color="#fd7e14"
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Previous Page */}
+          {currentPage > 1 && (
+            <TouchableOpacity
+              style={styles.pageButton}
+              onPress={() => goToPage(currentPage - 1)}
+            >
+              <Icon
+                name="chevron-left"
+                type="feather"
+                size={16}
+                color="#fd7e14"
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Page Numbers */}
+          {pages.map((page) => (
+            <TouchableOpacity
+              key={page}
+              style={[
+                styles.pageButton,
+                page === currentPage && styles.activePageButton,
+              ]}
+              onPress={() => goToPage(page)}
+            >
+              <Text
+                style={[
+                  styles.pageButtonText,
+                  page === currentPage && styles.activePageButtonText,
+                ]}
+              >
+                {page}
+              </Text>
+            </TouchableOpacity>
+          ))}
+
+          {/* Next Page */}
+          {currentPage < totalPages && (
+            <TouchableOpacity
+              style={styles.pageButton}
+              onPress={() => goToPage(currentPage + 1)}
+            >
+              <Icon
+                name="chevron-right"
+                type="feather"
+                size={16}
+                color="#fd7e14"
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Last Page */}
+          {currentPage < totalPages && (
+            <TouchableOpacity
+              style={styles.pageButton}
+              onPress={() => goToPage(totalPages)}
+            >
+              <Icon
+                name="chevrons-right"
+                type="feather"
+                size={16}
+                color="#fd7e14"
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Load More Button (Alternative to pagination) */}
+        {currentPage < totalPages && (
+          <TouchableOpacity
+            style={styles.loadMoreButton}
+            onPress={loadMoreData}
+            disabled={loadingMore}
+          >
+            {loadingMore ? (
+              <ActivityIndicator size="small" color="#fd7e14" />
+            ) : (
+              <Icon
+                name="chevron-down"
+                type="feather"
+                size={16}
+                color="#fd7e14"
+              />
+            )}
+            <Text style={styles.loadMoreText}>
+              {loadingMore ? "Memuat..." : "Muat Lebih Banyak"}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
   };
 
   const renderItem = (item: OrangMasukItem, index: number) => {
@@ -371,13 +554,13 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
         <Text style={styles.headerTitle}>Orang Masuk</Text>
         <View style={styles.headerStats}>
           <Text style={styles.headerSubtitle}>
-            {filteredData.length}{" "}
-            {filteredData.length === 1 ? "entry" : "entries"}
+            {orangMasuk.length} dari {totalItems}{" "}
+            {totalItems === 1 ? "entry" : "entries"}
           </Text>
           <View style={styles.totalStats}>
             <Icon name="users" type="feather" size={12} color="#fd7e14" />
             <Text style={styles.totalStatsText}>
-              {filteredData.length} total people
+              {orangMasuk.length} people on current page
             </Text>
           </View>
         </View>
@@ -386,7 +569,7 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
       {/* Business Unit Filter Status */}
       {canSeeAllData && (
         <View style={styles.masterBadge}>
-          <Icon name="crown" type="feather" size={16} color="#333" />
+          <Icon name="star" type="feather" size={16} color="#333" />
           <Text style={styles.masterBadgeText}>
             Master View - Showing all data from all business units
           </Text>
@@ -457,12 +640,12 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
             <Text style={styles.errorText}>{error}</Text>
             <Button
               title="Coba Lagi"
-              onPress={fetchOrangMasuk}
+              onPress={() => fetchData(currentPage, true)}
               buttonStyle={styles.retryButton}
               type="outline"
             />
           </View>
-        ) : filteredData.length === 0 ? (
+        ) : orangMasuk.length === 0 ? (
           <View style={styles.centerContainer}>
             <Icon name="users" type="feather" size={64} color="#6c757d" />
             <Text style={styles.emptyTitle}>
@@ -483,7 +666,8 @@ export default function OrangMasukList({ navigation }: { navigation: any }) {
           </View>
         ) : (
           <View style={styles.listContainer}>
-            {filteredData.map((item, index) => renderItem(item, index))}
+            {orangMasuk.map((item, index) => renderItem(item, index))}
+            {renderPagination()}
           </View>
         )}
       </ScrollView>
@@ -825,5 +1009,68 @@ const styles = StyleSheet.create({
     backgroundColor: "#fd7e14",
     marginTop: 20,
     paddingHorizontal: 32,
+  },
+  // Pagination Styles
+  paginationContainer: {
+    marginTop: 20,
+    marginBottom: 10,
+    paddingHorizontal: 16,
+  },
+  paginationInfo: {
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  paginationText: {
+    fontSize: 14,
+    color: "#6c757d",
+    textAlign: "center",
+  },
+  paginationControls: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  pageButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#dee2e6",
+    backgroundColor: "white",
+    minWidth: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activePageButton: {
+    backgroundColor: "#fd7e14",
+    borderColor: "#fd7e14",
+  },
+  pageButtonText: {
+    fontSize: 14,
+    color: "#fd7e14",
+    fontWeight: "500",
+  },
+  activePageButtonText: {
+    color: "white",
+  },
+  loadMoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: "white",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#dee2e6",
+    gap: 8,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    color: "#fd7e14",
+    fontWeight: "500",
   },
 });
