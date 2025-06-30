@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "rn-appsheet",
-    "slug": "rn-appsheet",
-    "version": "1.0.0",
+    "name": "Barokah Security App",
+    "slug": "barokah-security-app",
+    "version": "1.1.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/ekta_barokah_round_launcher.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/logo-bpg.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -17,7 +17,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/ekta_barokah_launcher.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.cga.barokahperkasagroup.rnappsheet"
