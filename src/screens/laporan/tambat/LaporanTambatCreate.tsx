@@ -18,6 +18,10 @@ import { generateUUID, generateDataID } from "../../../utils/uuid";
 import DropdownSelector from "../../../components/DropdownSelector";
 import { useUserBusinessUnit } from "../../../hooks/useUserBusinessUnit";
 import { useSecurityOptions } from "../../../hooks/useSecurityNames";
+import {
+  createTimeChangeHandler,
+  openTimePicker,
+} from "../../../utils/timeHandler";
 
 interface UserProfile {
   id: string;
@@ -255,41 +259,22 @@ export default function LaporanTambatCreate() {
     }
   };
 
-  const onChangeTimeMulaiTambat = (event: any, selectedTime?: Date) => {
-    if (selectedTime) {
-      const hours = selectedTime.getHours().toString().padStart(2, "0");
-      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
-      const currentTime = `${hours}:${minutes}:00`;
-      setFormData({ ...formData, waktu_mulai_tambat: currentTime });
-    }
-  };
-
-  const onChangeTimeSelesaiTambat = (event: any, selectedTime?: Date) => {
-    if (selectedTime) {
-      const hours = selectedTime.getHours().toString().padStart(2, "0");
-      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
-      const currentTime = `${hours}:${minutes}:00`;
-      setFormData({ ...formData, waktu_selesai_tambat: currentTime });
-    }
-  };
-
-  const onChangeTimeMulaiConnect = (event: any, selectedTime?: Date) => {
-    if (selectedTime) {
-      const hours = selectedTime.getHours().toString().padStart(2, "0");
-      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
-      const currentTime = `${hours}:${minutes}:00`;
-      setFormData({ ...formData, waktu_mulai_connect: currentTime });
-    }
-  };
-
-  const onChangeTimeSelesaiConnect = (event: any, selectedTime?: Date) => {
-    if (selectedTime) {
-      const hours = selectedTime.getHours().toString().padStart(2, "0");
-      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
-      const currentTime = `${hours}:${minutes}:00`;
-      setFormData({ ...formData, waktu_selesai_connect: currentTime });
-    }
-  };
+  const onChangeTimeMulaiTambat = createTimeChangeHandler(
+    setFormData,
+    "waktu_mulai_tambat"
+  );
+  const onChangeTimeSelesaiTambat = createTimeChangeHandler(
+    setFormData,
+    "waktu_selesai_tambat"
+  );
+  const onChangeTimeMulaiConnect = createTimeChangeHandler(
+    setFormData,
+    "waktu_mulai_connect"
+  );
+  const onChangeTimeSelesaiConnect = createTimeChangeHandler(
+    setFormData,
+    "waktu_selesai_connect"
+  );
 
   // Date picker functions
   const showDateMulaiTambatPicker = () => {
@@ -325,40 +310,50 @@ export default function LaporanTambatCreate() {
   };
 
   // Time picker functions
+  const parseTimeToDate = (timeString: string): Date => {
+    try {
+      const timeParts = timeString.split(":");
+      const hours = parseInt(timeParts[0]) || 0;
+      const minutes = parseInt(timeParts[1]) || 0;
+
+      const timeDate = new Date();
+      timeDate.setHours(hours);
+      timeDate.setMinutes(minutes);
+      timeDate.setSeconds(0);
+
+      return timeDate;
+    } catch (error) {
+      console.error("Error parsing time:", error);
+      return new Date();
+    }
+  };
+
   const showTimeMulaiTambatPicker = () => {
-    DateTimePickerAndroid.open({
-      value: new Date(`1970-01-01T${formData.waktu_mulai_tambat}:00`),
-      onChange: onChangeTimeMulaiTambat,
-      mode: "time",
-      is24Hour: true,
-    });
+    openTimePicker(
+      parseTimeToDate(formData.waktu_mulai_tambat),
+      onChangeTimeMulaiTambat
+    );
   };
 
   const showTimeSelesaiTambatPicker = () => {
-    DateTimePickerAndroid.open({
-      value: new Date(`1970-01-01T${formData.waktu_selesai_tambat}:00`),
-      onChange: onChangeTimeSelesaiTambat,
-      mode: "time",
-      is24Hour: true,
-    });
+    openTimePicker(
+      parseTimeToDate(formData.waktu_selesai_tambat),
+      onChangeTimeSelesaiTambat
+    );
   };
 
   const showTimeMulaiConnectPicker = () => {
-    DateTimePickerAndroid.open({
-      value: new Date(`1970-01-01T${formData.waktu_mulai_connect}:00`),
-      onChange: onChangeTimeMulaiConnect,
-      mode: "time",
-      is24Hour: true,
-    });
+    openTimePicker(
+      parseTimeToDate(formData.waktu_mulai_connect),
+      onChangeTimeMulaiConnect
+    );
   };
 
   const showTimeSelesaiConnectPicker = () => {
-    DateTimePickerAndroid.open({
-      value: new Date(`1970-01-01T${formData.waktu_selesai_connect}:00`),
-      onChange: onChangeTimeSelesaiConnect,
-      mode: "time",
-      is24Hour: true,
-    });
+    openTimePicker(
+      parseTimeToDate(formData.waktu_selesai_connect),
+      onChangeTimeSelesaiConnect
+    );
   };
 
   const DateTimeSelector = ({

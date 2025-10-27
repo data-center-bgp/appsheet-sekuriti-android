@@ -18,6 +18,10 @@ import { generateUUID, generateDataID } from "../../../utils/uuid";
 import DropdownSelector from "../../../components/DropdownSelector";
 import { useUserBusinessUnit } from "../../../hooks/useUserBusinessUnit";
 import { useSecurityOptions } from "../../../hooks/useSecurityNames";
+import {
+  createTimeChangeHandler,
+  openTimePicker,
+} from "../../../utils/timeHandler";
 
 interface UserProfile {
   id: string;
@@ -210,21 +214,30 @@ export default function LaporanBunkerFreshWaterCreate() {
     }
   };
 
-  const onChangeWaktuMulai = (event: any, selectedTime?: Date) => {
-    if (selectedTime) {
-      const hours = selectedTime.getHours().toString().padStart(2, "0");
-      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
-      const currentTime = `${hours}:${minutes}:00`;
-      setFormData({ ...formData, waktu_mulai: currentTime });
-    }
-  };
+  const onChangeWaktuMulai = createTimeChangeHandler(
+    setFormData,
+    "waktu_mulai"
+  );
+  const onChangeWaktuSelesai = createTimeChangeHandler(
+    setFormData,
+    "waktu_selesai"
+  );
 
-  const onChangeWaktuSelesai = (event: any, selectedTime?: Date) => {
-    if (selectedTime) {
-      const hours = selectedTime.getHours().toString().padStart(2, "0");
-      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
-      const currentTime = `${hours}:${minutes}:00`;
-      setFormData({ ...formData, waktu_selesai: currentTime });
+  const parseTimeToDate = (timeString: string): Date => {
+    try {
+      const timeParts = timeString.split(":");
+      const hours = parseInt(timeParts[0]) || 0;
+      const minutes = parseInt(timeParts[1]) || 0;
+
+      const timeDate = new Date();
+      timeDate.setHours(hours);
+      timeDate.setMinutes(minutes);
+      timeDate.setSeconds(0);
+
+      return timeDate;
+    } catch (error) {
+      console.error("Error parsing time:", error);
+      return new Date();
     }
   };
 
@@ -237,21 +250,14 @@ export default function LaporanBunkerFreshWaterCreate() {
   };
 
   const showWaktuMulaiPickerDialog = () => {
-    DateTimePickerAndroid.open({
-      value: new Date(`1970-01-01T${formData.waktu_mulai}:00`),
-      onChange: onChangeWaktuMulai,
-      mode: "time",
-      is24Hour: true,
-    });
+    openTimePicker(parseTimeToDate(formData.waktu_mulai), onChangeWaktuMulai);
   };
 
   const showWaktuSelesaiPickerDialog = () => {
-    DateTimePickerAndroid.open({
-      value: new Date(`1970-01-01T${formData.waktu_selesai}:00`),
-      onChange: onChangeWaktuSelesai,
-      mode: "time",
-      is24Hour: true,
-    });
+    openTimePicker(
+      parseTimeToDate(formData.waktu_selesai),
+      onChangeWaktuSelesai
+    );
   };
 
   const DateTimeSelector = ({

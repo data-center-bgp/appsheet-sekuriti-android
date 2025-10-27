@@ -28,6 +28,10 @@ import DropdownSelector from "../../../components/DropdownSelector";
 import { useUserBusinessUnit } from "../../../hooks/useUserBusinessUnit";
 import { useSecurityOptions } from "../../../hooks/useSecurityNames";
 import { usePosition } from "../../../hooks/usePosition";
+import {
+  createTimeChangeHandler,
+  openTimePicker,
+} from "../../../utils/timeHandler";
 
 interface DetailDoKeluar {
   id?: string;
@@ -512,14 +516,7 @@ export default function BarangKeluarCreate() {
     }
   };
 
-  const onChangeTime = (event: any, selectedTime?: Date) => {
-    if (selectedTime) {
-      const hours = selectedTime.getHours().toString().padStart(2, "0");
-      const minutes = selectedTime.getMinutes().toString().padStart(2, "0");
-      const currentTime = `${hours}:${minutes}:00`;
-      setFormData({ ...formData, jam: currentTime });
-    }
-  };
+  const onChangeTime = createTimeChangeHandler(setFormData, "jam");
 
   const showDatePickerDialog = () => {
     DateTimePickerAndroid.open({
@@ -530,12 +527,23 @@ export default function BarangKeluarCreate() {
   };
 
   const showTimePickerDialog = () => {
-    DateTimePickerAndroid.open({
-      value: new Date(`1970-01-01T${formData.jam}:00`),
-      onChange: onChangeTime,
-      mode: "time",
-      is24Hour: true,
-    });
+    try {
+      // Parse time string (HH:mm:ss format) into Date object
+      const timeParts = formData.jam.split(":");
+      const hours = parseInt(timeParts[0]) || 0;
+      const minutes = parseInt(timeParts[1]) || 0;
+
+      const timeDate = new Date();
+      timeDate.setHours(hours);
+      timeDate.setMinutes(minutes);
+      timeDate.setSeconds(0);
+
+      openTimePicker(timeDate, onChangeTime);
+    } catch (error) {
+      console.error("Error parsing time:", error);
+      // Fallback to current time
+      openTimePicker(new Date(), onChangeTime);
+    }
   };
 
   const DateTimeSelector = ({
