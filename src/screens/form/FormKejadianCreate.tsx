@@ -25,11 +25,8 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { RootStackParamList } from "../../types/navigation";
 import { generateUUID, generateDataID } from "../../utils/uuid";
 import DropdownSelector from "../../components/DropdownSelector";
-import {
-  getPosDropdownOptions,
-  getSecurityDropdownOptions,
-} from "../../utils/dropdown";
 import { useUserBusinessUnit } from "../../hooks/useUserBusinessUnit";
+import { useSecurityOptions } from "../../hooks/useSecurityNames";
 
 interface PhotoItem {
   id?: string;
@@ -50,6 +47,14 @@ export default function FormKejadianCreate() {
   const route = useRoute<RouteProp<RootStackParamList, "FormKejadianCreate">>();
   const editData = route.params?.editData;
 
+  const { businessUnit, loading: businessUnitLoading } = useUserBusinessUnit();
+
+  const {
+    dropdownOptions: securityOptions,
+    loading: securityLoading,
+    error: securityError,
+  } = useSecurityOptions(businessUnit);
+
   const [formData, setFormData] = useState({
     id: editData?.id || undefined,
     ID: editData?.ID || "",
@@ -65,10 +70,6 @@ export default function FormKejadianCreate() {
     sekuriti: editData?.sekuriti || "",
     business_unit: editData?.business_unit || "",
   });
-
-  const { businessUnit, loading: businessUnitLoading } = useUserBusinessUnit();
-  const securityOptions = getSecurityDropdownOptions(businessUnit);
-  const posOptions = getPosDropdownOptions(businessUnit);
 
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
@@ -695,30 +696,53 @@ export default function FormKejadianCreate() {
           {/* Photo Section */}
           {renderPhotoSection()}
 
-          {/* Additional Information Card */}
+          {/* Additional Information Card - UPDATED SECTION */}
           <Card containerStyle={styles.card}>
             <View style={styles.cardHeader}>
               <Icon name="edit-3" type="feather" size={18} color="#495057" />
               <Text style={styles.cardTitle}>Informasi Tambahan</Text>
             </View>
 
-            <DropdownSelector
-              label="Sekuriti"
-              placeholder="Pilih nama sekuriti"
-              value={formData.sekuriti}
-              options={securityOptions}
-              onSelect={(value) =>
-                setFormData({ ...formData, sekuriti: value })
-              }
-              leftIcon={{
-                name: "shield",
-                type: "feather",
-                size: 20,
-                color: "#6c757d",
-              }}
-              disabled={businessUnitLoading}
-              required={false}
-            />
+            <View style={styles.twoColumnRow}>
+              <View style={styles.halfInput}>
+                {securityLoading ? (
+                  <View style={styles.dropdownLoadingContainer}>
+                    <Icon
+                      name="loader"
+                      type="feather"
+                      size={16}
+                      color="#dc3545"
+                    />
+                    <Text style={styles.dropdownLoadingText}>Loading...</Text>
+                  </View>
+                ) : (
+                  <>
+                    <DropdownSelector
+                      label="Sekuriti"
+                      placeholder="Pilih nama sekuriti"
+                      value={formData.sekuriti}
+                      options={securityOptions}
+                      onSelect={(value) =>
+                        setFormData({ ...formData, sekuriti: value })
+                      }
+                      leftIcon={{
+                        name: "shield",
+                        type: "feather",
+                        size: 20,
+                        color: "#6c757d",
+                      }}
+                      disabled={businessUnitLoading || securityLoading}
+                      required={false}
+                    />
+                    {securityError && (
+                      <Text style={styles.dropdownErrorText}>
+                        Error: {securityError}
+                      </Text>
+                    )}
+                  </>
+                )}
+              </View>
+            </View>
           </Card>
 
           {/* Error Message */}
@@ -762,7 +786,9 @@ export default function FormKejadianCreate() {
             <Button
               title={loading ? "Menyimpan..." : "Simpan"}
               onPress={handleSubmit}
-              disabled={loading || profileLoading || uploadingPhotos}
+              disabled={
+                loading || profileLoading || uploadingPhotos || securityLoading
+              }
               buttonStyle={styles.submitButton}
               titleStyle={styles.submitButtonText}
               loading={loading}
@@ -1066,6 +1092,36 @@ const styles = StyleSheet.create({
     color: "#dc3545",
     fontSize: 14,
     fontWeight: "500",
+  },
+  twoColumnRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  halfInput: {
+    flex: 1,
+  },
+  dropdownLoadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#dee2e6",
+    gap: 8,
+    marginBottom: 16,
+  },
+  dropdownLoadingText: {
+    color: "#dc3545",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  dropdownErrorText: {
+    color: "#dc3545",
+    fontSize: 11,
+    marginTop: -12,
+    marginBottom: 8,
+    paddingLeft: 12,
   },
   errorContainer: {
     flexDirection: "row",

@@ -16,11 +16,9 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { RootStackParamList } from "../../../types/navigation";
 import { generateUUID, generateDataID } from "../../../utils/uuid";
 import DropdownSelector from "../../../components/DropdownSelector";
-import {
-  getPosDropdownOptions,
-  getSecurityDropdownOptions,
-} from "../../../utils/dropdown";
 import { useUserBusinessUnit } from "../../../hooks/useUserBusinessUnit";
+import { useSecurityOptions } from "../../../hooks/useSecurityNames";
+import { usePosition } from "../../../hooks/usePosition";
 
 interface UserProfile {
   id: string;
@@ -31,6 +29,20 @@ export default function SuratMasukCreate() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RootStackParamList, "SuratMasukCreate">>();
   const editData = route.params?.editData;
+
+  const { businessUnit, loading: businessUnitLoading } = useUserBusinessUnit();
+
+  const {
+    dropdownOptions: securityOptions,
+    loading: securityLoading,
+    error: securityError,
+  } = useSecurityOptions(businessUnit);
+
+  const {
+    dropdownOptions: posOptions,
+    loading: posLoading,
+    error: posError,
+  } = usePosition(businessUnit);
 
   const [formData, setFormData] = useState({
     id: editData?.id || undefined,
@@ -50,10 +62,6 @@ export default function SuratMasukCreate() {
     pos: editData?.pos || "",
     business_unit: editData?.business_unit || "",
   });
-
-  const { businessUnit, loading: businessUnitLoading } = useUserBusinessUnit();
-  const securityOptions = getSecurityDropdownOptions(businessUnit);
-  const posOptions = getPosDropdownOptions(businessUnit);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -468,7 +476,7 @@ export default function SuratMasukCreate() {
             />
           </Card>
 
-          {/* Additional Information Card */}
+          {/* Additional Information Card - UPDATED SECTION */}
           <Card containerStyle={styles.card}>
             <View style={styles.cardHeader}>
               <Icon name="edit-3" type="feather" size={18} color="#495057" />
@@ -477,40 +485,81 @@ export default function SuratMasukCreate() {
 
             <View style={styles.twoColumnRow}>
               <View style={styles.halfInput}>
-                <DropdownSelector
-                  label="Sekuriti"
-                  placeholder="Pilih nama sekuriti"
-                  value={formData.sekuriti}
-                  options={securityOptions}
-                  onSelect={(value) =>
-                    setFormData({ ...formData, sekuriti: value })
-                  }
-                  leftIcon={{
-                    name: "shield",
-                    type: "feather",
-                    size: 20,
-                    color: "#6c757d",
-                  }}
-                  disabled={businessUnitLoading}
-                  required={false}
-                />
+                {securityLoading ? (
+                  <View style={styles.dropdownLoadingContainer}>
+                    <Icon
+                      name="loader"
+                      type="feather"
+                      size={16}
+                      color="#007bff"
+                    />
+                    <Text style={styles.dropdownLoadingText}>Loading...</Text>
+                  </View>
+                ) : (
+                  <>
+                    <DropdownSelector
+                      label="Sekuriti"
+                      placeholder="Pilih nama sekuriti"
+                      value={formData.sekuriti}
+                      options={securityOptions}
+                      onSelect={(value) =>
+                        setFormData({ ...formData, sekuriti: value })
+                      }
+                      leftIcon={{
+                        name: "shield",
+                        type: "feather",
+                        size: 20,
+                        color: "#6c757d",
+                      }}
+                      disabled={businessUnitLoading || securityLoading}
+                      required={false}
+                    />
+                    {securityError && (
+                      <Text style={styles.dropdownErrorText}>
+                        Error: {securityError}
+                      </Text>
+                    )}
+                  </>
+                )}
               </View>
+
               <View style={styles.halfInput}>
-                <DropdownSelector
-                  label="Pos"
-                  placeholder="Pilih lokasi pos"
-                  value={formData.pos}
-                  options={posOptions}
-                  onSelect={(value) => setFormData({ ...formData, pos: value })}
-                  leftIcon={{
-                    name: "map-pin",
-                    type: "feather",
-                    size: 20,
-                    color: "#6c757d",
-                  }}
-                  disabled={businessUnitLoading}
-                  required={false}
-                />
+                {posLoading ? (
+                  <View style={styles.dropdownLoadingContainer}>
+                    <Icon
+                      name="loader"
+                      type="feather"
+                      size={16}
+                      color="#007bff"
+                    />
+                    <Text style={styles.dropdownLoadingText}>Loading...</Text>
+                  </View>
+                ) : (
+                  <>
+                    <DropdownSelector
+                      label="Pos"
+                      placeholder="Pilih lokasi pos"
+                      value={formData.pos}
+                      options={posOptions}
+                      onSelect={(value) =>
+                        setFormData({ ...formData, pos: value })
+                      }
+                      leftIcon={{
+                        name: "map-pin",
+                        type: "feather",
+                        size: 20,
+                        color: "#6c757d",
+                      }}
+                      disabled={businessUnitLoading || posLoading}
+                      required={false}
+                    />
+                    {posError && (
+                      <Text style={styles.dropdownErrorText}>
+                        Error: {posError}
+                      </Text>
+                    )}
+                  </>
+                )}
               </View>
             </View>
           </Card>
@@ -556,7 +605,9 @@ export default function SuratMasukCreate() {
             <Button
               title={loading ? "Menyimpan..." : "Simpan"}
               onPress={handleSubmit}
-              disabled={loading || profileLoading}
+              disabled={
+                loading || profileLoading || securityLoading || posLoading
+              }
               buttonStyle={styles.submitButton}
               titleStyle={styles.submitButtonText}
               loading={loading}
@@ -732,6 +783,29 @@ const styles = StyleSheet.create({
   },
   halfInput: {
     flex: 1,
+  },
+  dropdownLoadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#dee2e6",
+    gap: 8,
+    marginBottom: 16,
+  },
+  dropdownLoadingText: {
+    color: "#007bff",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  dropdownErrorText: {
+    color: "#dc3545",
+    fontSize: 11,
+    marginTop: -12,
+    marginBottom: 8,
+    paddingLeft: 12,
   },
   errorContainer: {
     flexDirection: "row",

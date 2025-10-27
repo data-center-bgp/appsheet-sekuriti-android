@@ -25,12 +25,9 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { RootStackParamList } from "../../../types/navigation";
 import { generateUUID, generateDataID } from "../../../utils/uuid";
 import DropdownSelector from "../../../components/DropdownSelector";
-import {
-  getPosDropdownOptions,
-  getSecurityDropdownOptions,
-  POS_OPTIONS,
-} from "../../../utils/dropdown";
 import { useUserBusinessUnit } from "../../../hooks/useUserBusinessUnit";
+import { useSecurityOptions } from "../../../hooks/useSecurityNames";
+import { usePosition } from "../../../hooks/usePosition";
 
 interface DetailDoMasuk {
   id?: string;
@@ -85,8 +82,17 @@ export default function BarangMasukCreate() {
     business_unit: editData?.business_unit || "",
   });
 
-  const securityOptions = getSecurityDropdownOptions(businessUnit);
-  const posOptions = getPosDropdownOptions(businessUnit);
+  const {
+    dropdownOptions: securityOptions,
+    loading: securityLoading,
+    error: securityError,
+  } = useSecurityOptions(businessUnit);
+
+  const {
+    dropdownOptions: posOptions,
+    loading: posLoading,
+    error: posError,
+  } = usePosition(businessUnit);
 
   const [detailItems, setDetailItems] = useState<DetailDoMasuk[]>([
     {
@@ -960,40 +966,81 @@ export default function BarangMasukCreate() {
 
             <View style={styles.twoColumnRow}>
               <View style={styles.halfInput}>
-                <DropdownSelector
-                  label="Sekuriti"
-                  placeholder="Pilih nama sekuriti"
-                  value={formData.sekuriti}
-                  options={securityOptions}
-                  onSelect={(value) =>
-                    setFormData({ ...formData, sekuriti: value })
-                  }
-                  leftIcon={{
-                    name: "shield",
-                    type: "feather",
-                    size: 20,
-                    color: "#6c757d",
-                  }}
-                  disabled={businessUnitLoading}
-                  required={false}
-                />
+                {securityLoading ? (
+                  <View style={styles.dropdownLoadingContainer}>
+                    <Icon
+                      name="loader"
+                      type="feather"
+                      size={16}
+                      color="#007bff"
+                    />
+                    <Text style={styles.dropdownLoadingText}>Loading...</Text>
+                  </View>
+                ) : (
+                  <>
+                    <DropdownSelector
+                      label="Sekuriti"
+                      placeholder="Pilih nama sekuriti"
+                      value={formData.sekuriti}
+                      options={securityOptions}
+                      onSelect={(value) =>
+                        setFormData({ ...formData, sekuriti: value })
+                      }
+                      leftIcon={{
+                        name: "shield",
+                        type: "feather",
+                        size: 20,
+                        color: "#6c757d",
+                      }}
+                      disabled={businessUnitLoading || securityLoading}
+                      required={false}
+                    />
+                    {securityError && (
+                      <Text style={styles.dropdownErrorText}>
+                        Error: {securityError}
+                      </Text>
+                    )}
+                  </>
+                )}
               </View>
+
               <View style={styles.halfInput}>
-                <DropdownSelector
-                  label="Pos"
-                  placeholder="Pilih lokasi pos"
-                  value={formData.pos}
-                  options={posOptions}
-                  onSelect={(value) => setFormData({ ...formData, pos: value })}
-                  leftIcon={{
-                    name: "map-pin",
-                    type: "feather",
-                    size: 20,
-                    color: "#6c757d",
-                  }}
-                  disabled={businessUnitLoading}
-                  required={false}
-                />
+                {posLoading ? (
+                  <View style={styles.dropdownLoadingContainer}>
+                    <Icon
+                      name="loader"
+                      type="feather"
+                      size={16}
+                      color="#007bff"
+                    />
+                    <Text style={styles.dropdownLoadingText}>Loading...</Text>
+                  </View>
+                ) : (
+                  <>
+                    <DropdownSelector
+                      label="Pos"
+                      placeholder="Pilih lokasi pos"
+                      value={formData.pos}
+                      options={posOptions}
+                      onSelect={(value) =>
+                        setFormData({ ...formData, pos: value })
+                      }
+                      leftIcon={{
+                        name: "map-pin",
+                        type: "feather",
+                        size: 20,
+                        color: "#6c757d",
+                      }}
+                      disabled={businessUnitLoading || posLoading}
+                      required={false}
+                    />
+                    {posError && (
+                      <Text style={styles.dropdownErrorText}>
+                        Error: {posError}
+                      </Text>
+                    )}
+                  </>
+                )}
               </View>
             </View>
           </Card>
@@ -1039,7 +1086,13 @@ export default function BarangMasukCreate() {
             <Button
               title={loading ? "Menyimpan..." : "Simpan"}
               onPress={handleSubmit}
-              disabled={loading || profileLoading || uploadingPhotos}
+              disabled={
+                loading ||
+                profileLoading ||
+                uploadingPhotos ||
+                securityLoading ||
+                posLoading
+              }
               buttonStyle={styles.submitButton}
               titleStyle={styles.submitButtonText}
               loading={loading}
@@ -1446,5 +1499,28 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontWeight: "600",
     marginLeft: 8,
+  },
+  dropdownErrorText: {
+    color: "#dc3545",
+    fontSize: 11,
+    marginTop: -12,
+    marginBottom: 8,
+    paddingLeft: 12,
+  },
+  dropdownLoadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#dee2e6",
+    gap: 8,
+    marginBottom: 16,
+  },
+  dropdownLoadingText: {
+    color: "#007bff",
+    fontSize: 12,
+    fontWeight: "500",
   },
 });
