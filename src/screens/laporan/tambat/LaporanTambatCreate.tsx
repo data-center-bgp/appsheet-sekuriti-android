@@ -18,6 +18,8 @@ import { generateUUID, generateDataID } from "../../../utils/uuid";
 import DropdownSelector from "../../../components/DropdownSelector";
 import { useUserBusinessUnit } from "../../../hooks/useUserBusinessUnit";
 import { useSecurityOptions } from "../../../hooks/useSecurityNames";
+import { useVessels } from "../../../hooks/useVessels";
+import { useCompanies } from "../../../hooks/useCompanies";
 import {
   createTimeChangeHandler,
   openTimePicker,
@@ -41,6 +43,18 @@ export default function LaporanTambatCreate() {
     loading: securityLoading,
     error: securityError,
   } = useSecurityOptions(businessUnit);
+
+  const {
+    dropdownOptions: vesselOptions,
+    loading: vesselLoading,
+    error: vesselError,
+  } = useVessels();
+
+  const {
+    dropdownOptions: companyOptions,
+    loading: companyLoading,
+    error: companyError,
+  } = useCompanies();
 
   const [formData, setFormData] = useState({
     id: editData?.id || undefined,
@@ -471,53 +485,111 @@ export default function LaporanTambatCreate() {
               <Text style={styles.cardTitle}>Informasi Kapal & Perusahaan</Text>
             </View>
 
-            <Input
-              placeholder="Nama kapal yang akan tambat"
-              label="Nama Kapal *"
-              value={formData.nama_kapal}
-              onChangeText={(text) => {
-                setFormData({ ...formData, nama_kapal: text });
-                if (validationErrors.nama_kapal) {
-                  setValidationErrors({
-                    ...validationErrors,
-                    nama_kapal: "",
-                  });
-                }
-              }}
-              errorMessage={validationErrors.nama_kapal}
-              leftIcon={{
-                name: "anchor",
-                type: "feather",
-                size: 20,
-                color: "#6c757d",
-              }}
-              inputContainerStyle={styles.inputContainer}
-              labelStyle={styles.inputLabel}
-            />
+            {/* Nama Kapal Dropdown */}
+            <View style={styles.dropdownWrapper}>
+              {vesselLoading ? (
+                <View style={styles.dropdownLoadingContainer}>
+                  <Icon
+                    name="loader"
+                    type="feather"
+                    size={16}
+                    color="#6f42c1"
+                  />
+                  <Text style={styles.dropdownLoadingText}>
+                    Memuat data kapal...
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <DropdownSelector
+                    label="Nama Kapal *"
+                    placeholder="Pilih nama kapal"
+                    value={formData.nama_kapal}
+                    options={vesselOptions}
+                    onSelect={(value) => {
+                      setFormData({ ...formData, nama_kapal: value });
+                      if (validationErrors.nama_kapal) {
+                        setValidationErrors({
+                          ...validationErrors,
+                          nama_kapal: "",
+                        });
+                      }
+                    }}
+                    leftIcon={{
+                      name: "anchor",
+                      type: "feather",
+                      size: 20,
+                      color: "#6c757d",
+                    }}
+                    disabled={vesselLoading}
+                    required={true}
+                  />
+                  {vesselError && (
+                    <Text style={styles.dropdownErrorText}>
+                      Error: {vesselError}
+                    </Text>
+                  )}
+                  {validationErrors.nama_kapal && (
+                    <Text style={styles.validationErrorText}>
+                      {validationErrors.nama_kapal}
+                    </Text>
+                  )}
+                </>
+              )}
+            </View>
 
-            <Input
-              placeholder="Nama perusahaan pemilik kapal"
-              label="Nama Perusahaan *"
-              value={formData.nama_perusahaan}
-              onChangeText={(text) => {
-                setFormData({ ...formData, nama_perusahaan: text });
-                if (validationErrors.nama_perusahaan) {
-                  setValidationErrors({
-                    ...validationErrors,
-                    nama_perusahaan: "",
-                  });
-                }
-              }}
-              errorMessage={validationErrors.nama_perusahaan}
-              leftIcon={{
-                name: "briefcase",
-                type: "feather",
-                size: 20,
-                color: "#6c757d",
-              }}
-              inputContainerStyle={styles.inputContainer}
-              labelStyle={styles.inputLabel}
-            />
+            {/* Nama Perusahaan Dropdown */}
+            <View style={styles.dropdownWrapper}>
+              {companyLoading ? (
+                <View style={styles.dropdownLoadingContainer}>
+                  <Icon
+                    name="loader"
+                    type="feather"
+                    size={16}
+                    color="#6f42c1"
+                  />
+                  <Text style={styles.dropdownLoadingText}>
+                    Memuat data perusahaan...
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <DropdownSelector
+                    label="Nama Perusahaan *"
+                    placeholder="Pilih nama perusahaan"
+                    value={formData.nama_perusahaan}
+                    options={companyOptions}
+                    onSelect={(value) => {
+                      setFormData({ ...formData, nama_perusahaan: value });
+                      if (validationErrors.nama_perusahaan) {
+                        setValidationErrors({
+                          ...validationErrors,
+                          nama_perusahaan: "",
+                        });
+                      }
+                    }}
+                    leftIcon={{
+                      name: "briefcase",
+                      type: "feather",
+                      size: 20,
+                      color: "#6c757d",
+                    }}
+                    disabled={companyLoading}
+                    required={true}
+                  />
+                  {companyError && (
+                    <Text style={styles.dropdownErrorText}>
+                      Error: {companyError}
+                    </Text>
+                  )}
+                  {validationErrors.nama_perusahaan && (
+                    <Text style={styles.validationErrorText}>
+                      {validationErrors.nama_perusahaan}
+                    </Text>
+                  )}
+                </>
+              )}
+            </View>
           </Card>
 
           {/* Docking Schedule Card */}
@@ -666,7 +738,7 @@ export default function LaporanTambatCreate() {
             </View>
           </Card>
 
-          {/* Additional Information Card - UPDATED SECTION */}
+          {/* Additional Information Card */}
           <Card containerStyle={styles.card}>
             <View style={styles.cardHeader}>
               <Icon name="edit-3" type="feather" size={18} color="#495057" />
@@ -756,7 +828,13 @@ export default function LaporanTambatCreate() {
             <Button
               title={loading ? "Menyimpan..." : "Simpan"}
               onPress={handleSubmit}
-              disabled={loading || profileLoading || securityLoading}
+              disabled={
+                loading ||
+                profileLoading ||
+                securityLoading ||
+                vesselLoading ||
+                companyLoading
+              }
               buttonStyle={styles.submitButton}
               titleStyle={styles.submitButtonText}
               loading={loading}
@@ -887,6 +965,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginBottom: 4,
   },
+  dropdownWrapper: {
+    marginBottom: 8,
+  },
   dateTimeSection: {
     marginTop: 8,
     marginBottom: 16,
@@ -953,6 +1034,13 @@ const styles = StyleSheet.create({
   dropdownErrorText: {
     color: "#dc3545",
     fontSize: 11,
+    marginTop: -12,
+    marginBottom: 8,
+    paddingLeft: 12,
+  },
+  validationErrorText: {
+    color: "#dc3545",
+    fontSize: 12,
     marginTop: -12,
     marginBottom: 8,
     paddingLeft: 12,
