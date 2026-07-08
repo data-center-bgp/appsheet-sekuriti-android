@@ -91,7 +91,7 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
 
   const fetchData = async (
     page: number = currentPage,
-    replace: boolean = false
+    replace: boolean = false,
   ) => {
     try {
       if (page === 1) {
@@ -113,7 +113,7 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
           id, ID, tanggal, jam, kejadian, lokasi, sekuriti, business_unit, created_at,
           foto_kejadian(id, foto, storage_path)
         `,
-          { count: "exact" }
+          { count: "exact" },
         )
         .order("created_at", { ascending: false })
         .range(from, to);
@@ -127,7 +127,7 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
       // Apply search filter if there's a search query
       if (searchQuery.trim()) {
         query = query.or(
-          `ID.ilike.%${searchQuery}%,kejadian.ilike.%${searchQuery}%,lokasi.ilike.%${searchQuery}%,sekuriti.ilike.%${searchQuery}%,business_unit.ilike.%${searchQuery}%`
+          `ID.ilike.%${searchQuery}%,kejadian.ilike.%${searchQuery}%,lokasi.ilike.%${searchQuery}%,sekuriti.ilike.%${searchQuery}%,business_unit.ilike.%${searchQuery}%`,
         );
       }
 
@@ -144,7 +144,10 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
         // Add counts to each item
         const itemsWithCounts = result.map((item) => ({
           ...item,
-          foto_count: item.foto_kejadian?.length || 0,
+          foto_kejadian:
+            item.foto_kejadian?.filter((photo) => photo.foto) || [],
+          foto_count:
+            item.foto_kejadian?.filter((photo) => photo.foto).length || 0,
         }));
 
         if (replace || page === 1) {
@@ -246,15 +249,15 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
                   async (foto) => {
                     if (foto.storage_path) {
                       const result = await deletePhotoFromStorage(
-                        foto.storage_path
+                        foto.storage_path,
                       );
                       if (!result.success) {
                         console.warn(
-                          `Failed to delete photo from storage: ${foto.storage_path}`
+                          `Failed to delete photo from storage: ${foto.storage_path}`,
                         );
                       }
                     }
-                  }
+                  },
                 );
 
                 await Promise.all(deletePhotoPromises);
@@ -286,14 +289,14 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
             }
           },
         },
-      ]
+      ],
     );
   };
 
   const deletePhoto = async (
     photoId: string,
     storagePath: string,
-    formKejadianId: string
+    formKejadianId: string,
   ) => {
     Alert.alert("Hapus Foto", "Apakah Anda yakin ingin menghapus foto ini?", [
       { text: "Batal", style: "cancel" },
@@ -307,7 +310,7 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
               const result = await deletePhotoFromStorage(storagePath);
               if (!result.success) {
                 console.warn(
-                  `Failed to delete photo from storage: ${storagePath}`
+                  `Failed to delete photo from storage: ${storagePath}`,
                 );
               }
             }
@@ -329,14 +332,14 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
             } else {
               // Update photo gallery and adjust current index
               const updatedGallery = photoGallery.filter(
-                (photo) => photo.id !== photoId
+                (photo) => photo.id !== photoId,
               );
               setPhotoGallery(updatedGallery);
 
               if (currentPhotoIndex >= updatedGallery.length) {
                 setCurrentPhotoIndex(updatedGallery.length - 1);
                 setSelectedPhoto(
-                  updatedGallery[updatedGallery.length - 1]?.foto
+                  updatedGallery[updatedGallery.length - 1]?.foto,
                 );
               } else {
                 setSelectedPhoto(updatedGallery[currentPhotoIndex]?.foto);
@@ -448,14 +451,14 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
                       // Find the parent item to get form_kejadian_id
                       const parentItem = formKejadian.find((item) =>
                         item.foto_kejadian?.some(
-                          (foto) => foto.id === currentPhoto.id
-                        )
+                          (foto) => foto.id === currentPhoto.id,
+                        ),
                       );
                       if (parentItem) {
                         deletePhoto(
                           currentPhoto.id,
                           currentPhoto.storage_path,
-                          parentItem.id
+                          parentItem.id,
                         );
                       }
                     }
@@ -482,11 +485,11 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
                 onError={(error) => {
                   console.warn(
                     "Full image load error:",
-                    error.nativeEvent.error
+                    error.nativeEvent.error,
                   );
                   Alert.alert(
                     "Error",
-                    "Gagal memuat foto. Foto mungkin telah dihapus dari storage."
+                    "Gagal memuat foto. Foto mungkin telah dihapus dari storage.",
                   );
                 }}
               />
@@ -931,7 +934,7 @@ export default function FormKejadianList({ navigation }: { navigation: any }) {
             <Text style={styles.totalStatsText}>
               {formKejadian.reduce(
                 (sum, item) => sum + (item.foto_count || 0),
-                0
+                0,
               )}{" "}
               total photos
             </Text>

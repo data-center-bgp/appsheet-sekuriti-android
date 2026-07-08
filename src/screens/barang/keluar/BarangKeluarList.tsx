@@ -100,7 +100,7 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
 
   const fetchData = async (
     page: number = currentPage,
-    replace: boolean = false
+    replace: boolean = false,
   ) => {
     try {
       if (page === 1) {
@@ -124,7 +124,7 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
           detail_do_keluar(id, nama_barang, jumlah, satuan),
           foto_do_keluar(id, foto, serial_number, storage_path)
         `,
-          { count: "exact" }
+          { count: "exact" },
         )
         .order("created_at", { ascending: false })
         .range(from, to);
@@ -138,7 +138,7 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
       // Apply search filter if there's a search query
       if (searchQuery.trim()) {
         query = query.or(
-          `ID.ilike.%${searchQuery}%,nomor_do.ilike.%${searchQuery}%,kurir.ilike.%${searchQuery}%,nama_pemilik_barang.ilike.%${searchQuery}%,tujuan.ilike.%${searchQuery}%,business_unit.ilike.%${searchQuery}%`
+          `ID.ilike.%${searchQuery}%,nomor_do.ilike.%${searchQuery}%,kurir.ilike.%${searchQuery}%,nama_pemilik_barang.ilike.%${searchQuery}%,tujuan.ilike.%${searchQuery}%,business_unit.ilike.%${searchQuery}%`,
         );
       }
 
@@ -156,7 +156,10 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
         const itemsWithCounts = result.map((item) => ({
           ...item,
           detail_count: item.detail_do_keluar?.length || 0,
-          foto_count: item.foto_do_keluar?.length || 0,
+          foto_do_keluar:
+            item.foto_do_keluar?.filter((photo) => photo.foto) || [],
+          foto_count:
+            item.foto_do_keluar?.filter((photo) => photo.foto).length || 0,
         }));
 
         if (replace || page === 1) {
@@ -258,15 +261,15 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
                   async (foto) => {
                     if (foto.storage_path) {
                       const result = await deletePhotoFromStorage(
-                        foto.storage_path
+                        foto.storage_path,
                       );
                       if (!result.success) {
                         console.warn(
-                          `Failed to delete photo from storage: ${foto.storage_path}`
+                          `Failed to delete photo from storage: ${foto.storage_path}`,
                         );
                       }
                     }
-                  }
+                  },
                 );
 
                 await Promise.all(deletePhotoPromises);
@@ -303,14 +306,14 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
             }
           },
         },
-      ]
+      ],
     );
   };
 
   const deletePhoto = async (
     photoId: string,
     storagePath: string,
-    barangKeluarId: string
+    barangKeluarId: string,
   ) => {
     Alert.alert("Hapus Foto", "Apakah Anda yakin ingin menghapus foto ini?", [
       { text: "Batal", style: "cancel" },
@@ -324,7 +327,7 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
               const result = await deletePhotoFromStorage(storagePath);
               if (!result.success) {
                 console.warn(
-                  `Failed to delete photo from storage: ${storagePath}`
+                  `Failed to delete photo from storage: ${storagePath}`,
                 );
               }
             }
@@ -346,14 +349,14 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
             } else {
               // Update photo gallery and adjust current index
               const updatedGallery = photoGallery.filter(
-                (photo) => photo.id !== photoId
+                (photo) => photo.id !== photoId,
               );
               setPhotoGallery(updatedGallery);
 
               if (currentPhotoIndex >= updatedGallery.length) {
                 setCurrentPhotoIndex(updatedGallery.length - 1);
                 setSelectedPhoto(
-                  updatedGallery[updatedGallery.length - 1]?.foto
+                  updatedGallery[updatedGallery.length - 1]?.foto,
                 );
               } else {
                 setSelectedPhoto(updatedGallery[currentPhotoIndex]?.foto);
@@ -499,14 +502,14 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
                       // Find the parent item to get barang_keluar_id
                       const parentItem = barangKeluar.find((item) =>
                         item.foto_do_keluar?.some(
-                          (foto) => foto.id === currentPhoto.id
-                        )
+                          (foto) => foto.id === currentPhoto.id,
+                        ),
                       );
                       if (parentItem) {
                         deletePhoto(
                           currentPhoto.id,
                           currentPhoto.storage_path,
-                          parentItem.id
+                          parentItem.id,
                         );
                       }
                     }
@@ -533,11 +536,11 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
                 onError={(error) => {
                   console.warn(
                     "Full image load error:",
-                    error.nativeEvent.error
+                    error.nativeEvent.error,
                   );
                   Alert.alert(
                     "Error",
-                    "Gagal memuat foto. Foto mungkin telah dihapus dari storage."
+                    "Gagal memuat foto. Foto mungkin telah dihapus dari storage.",
                   );
                 }}
               />
@@ -998,7 +1001,7 @@ export default function BarangKeluarList({ navigation }: { navigation: any }) {
             <Text style={styles.totalStatsText}>
               {barangKeluar.reduce(
                 (sum, item) => sum + (item.detail_count || 0),
-                0
+                0,
               )}{" "}
               total items
             </Text>

@@ -99,7 +99,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
 
   const fetchData = async (
     page: number = currentPage,
-    replace: boolean = false
+    replace: boolean = false,
   ) => {
     try {
       if (page === 1) {
@@ -123,7 +123,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
           detail_do_masuk(id, nama_barang, jumlah, satuan),
           foto_do_masuk(id, foto, serial_number, storage_path)
         `,
-          { count: "exact" }
+          { count: "exact" },
         )
         .order("created_at", { ascending: false })
         .range(from, to);
@@ -137,7 +137,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
       // Apply search filter if there's a search query
       if (searchQuery.trim()) {
         query = query.or(
-          `ID.ilike.%${searchQuery}%,nomor_do.ilike.%${searchQuery}%,nama_pembawa_barang.ilike.%${searchQuery}%,nama_pemilik_barang.ilike.%${searchQuery}%,business_unit.ilike.%${searchQuery}%`
+          `ID.ilike.%${searchQuery}%,nomor_do.ilike.%${searchQuery}%,nama_pembawa_barang.ilike.%${searchQuery}%,nama_pemilik_barang.ilike.%${searchQuery}%,business_unit.ilike.%${searchQuery}%`,
         );
       }
 
@@ -159,11 +159,13 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
           // Convert new structure to old for compatibility with existing code
           detail_do_masuk: item.detail_do_masuk || [],
           foto_do_masuk:
-            item.foto_do_masuk?.map((photo) => ({
-              id: photo.id,
-              foto: photo.foto,
-              storage_path: photo.storage_path,
-            })) || [],
+            item.foto_do_masuk
+              ?.filter((photo) => photo.foto)
+              .map((photo) => ({
+                id: photo.id,
+                foto: photo.foto,
+                storage_path: photo.storage_path,
+              })) || [],
         }));
 
         if (replace || page === 1) {
@@ -265,15 +267,15 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
                   async (foto) => {
                     if (foto.storage_path) {
                       const result = await deletePhotoFromStorage(
-                        foto.storage_path
+                        foto.storage_path,
                       );
                       if (!result.success) {
                         console.warn(
-                          `Failed to delete photo from storage: ${foto.storage_path}`
+                          `Failed to delete photo from storage: ${foto.storage_path}`,
                         );
                       }
                     }
-                  }
+                  },
                 );
 
                 await Promise.all(deletePhotoPromises);
@@ -310,14 +312,14 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
             }
           },
         },
-      ]
+      ],
     );
   };
 
   const deletePhoto = async (
     photoId: string,
     storagePath: string,
-    barangMasukId: string
+    barangMasukId: string,
   ) => {
     Alert.alert("Hapus Foto", "Apakah Anda yakin ingin menghapus foto ini?", [
       { text: "Batal", style: "cancel" },
@@ -331,14 +333,14 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
               const result = await deletePhotoFromStorage(storagePath);
               if (!result.success) {
                 console.warn(
-                  `Failed to delete photo from storage: ${storagePath}`
+                  `Failed to delete photo from storage: ${storagePath}`,
                 );
               }
             }
 
-            // Delete from database - use new table name
+            // Delete from database
             const { error } = await supabase
-              .from("barang_masuk_photos")
+              .from("foto_do_masuk")
               .delete()
               .eq("id", photoId);
 
@@ -353,14 +355,14 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
             } else {
               // Update photo gallery and adjust current index
               const updatedGallery = photoGallery.filter(
-                (photo) => photo.id !== photoId
+                (photo) => photo.id !== photoId,
               );
               setPhotoGallery(updatedGallery);
 
               if (currentPhotoIndex >= updatedGallery.length) {
                 setCurrentPhotoIndex(updatedGallery.length - 1);
                 setSelectedPhoto(
-                  updatedGallery[updatedGallery.length - 1]?.foto
+                  updatedGallery[updatedGallery.length - 1]?.foto,
                 );
               } else {
                 setSelectedPhoto(updatedGallery[currentPhotoIndex]?.foto);
@@ -499,14 +501,14 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
                       // Find the parent item to get barang_masuk_id
                       const parentItem = barangMasuk.find((item) =>
                         item.foto_do_masuk?.some(
-                          (foto) => foto.id === currentPhoto.id
-                        )
+                          (foto) => foto.id === currentPhoto.id,
+                        ),
                       );
                       if (parentItem) {
                         deletePhoto(
                           currentPhoto.id,
                           currentPhoto.storage_path,
-                          parentItem.id
+                          parentItem.id,
                         );
                       }
                     }
@@ -533,11 +535,11 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
                 onError={(error) => {
                   console.warn(
                     "Full image load error:",
-                    error.nativeEvent.error
+                    error.nativeEvent.error,
                   );
                   Alert.alert(
                     "Error",
-                    "Gagal memuat foto. Foto mungkin telah dihapus dari storage."
+                    "Gagal memuat foto. Foto mungkin telah dihapus dari storage.",
                   );
                 }}
               />
@@ -974,7 +976,7 @@ export default function BarangMasukList({ navigation }: { navigation: any }) {
             <Text style={styles.totalStatsText}>
               {barangMasuk.reduce(
                 (sum, item) => sum + (item.detail_count || 0),
-                0
+                0,
               )}{" "}
               total items
             </Text>

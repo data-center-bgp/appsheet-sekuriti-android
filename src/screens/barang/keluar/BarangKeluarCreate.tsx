@@ -16,7 +16,7 @@ import {
   takePhoto,
   generatePhotoFileName,
   PhotoUploadResult,
-} from "../../../utils/photoDoMasukHandler";
+} from "../../../utils/photoDoKeluarHandler";
 import { Text, Card, Button, Input, Icon, Header } from "@rneui/themed";
 import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
@@ -266,8 +266,8 @@ export default function BarangKeluarCreate() {
   const updatePhotoSerialNumber = (index: number, serialNumber: string) => {
     setPhotos((prev) =>
       prev.map((photo, i) =>
-        i === index ? { ...photo, serial_number: serialNumber } : photo
-      )
+        i === index ? { ...photo, serial_number: serialNumber } : photo,
+      ),
     );
   };
 
@@ -283,7 +283,7 @@ export default function BarangKeluarCreate() {
 
         // Update photo state to show uploading
         setPhotos((prev) =>
-          prev.map((p, i) => (i === index ? { ...p, uploading: true } : p))
+          prev.map((p, i) => (i === index ? { ...p, uploading: true } : p)),
         );
 
         const fileName = generatePhotoFileName(barangKeluarId, index);
@@ -393,7 +393,7 @@ export default function BarangKeluarCreate() {
   const updateDetailItem = (
     index: number,
     field: keyof DetailDoKeluar,
-    value: any
+    value: any,
   ) => {
     const newItems = [...detailItems];
     newItems[index] = { ...newItems[index], [field]: value };
@@ -467,7 +467,7 @@ export default function BarangKeluarCreate() {
       // Insert detail items
       const validDetailItems = detailItems.filter(
         (item) =>
-          item.nama_barang.trim() && item.jumlah > 0 && item.satuan.trim()
+          item.nama_barang.trim() && item.jumlah > 0 && item.satuan.trim(),
       );
 
       if (validDetailItems.length > 0) {
@@ -499,7 +499,7 @@ export default function BarangKeluarCreate() {
       Alert.alert(
         "Berhasil",
         editData ? "Data berhasil diperbarui" : "Data berhasil disimpan",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
+        [{ text: "OK", onPress: () => navigation.goBack() }],
       );
     } catch (error: any) {
       setError(error.message);
