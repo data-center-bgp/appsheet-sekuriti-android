@@ -12,186 +12,106 @@ import {
 import { Text, Button, Icon, Badge, SearchBar, Card } from "@rneui/themed";
 import { supabase } from "../../../lib/supabase";
 import { useDataFilter } from "../../../hooks/useDataFilter";
-import { applyBusinessUnitFilter } from "../../../utils/queryHelper";
 import DateFilter, { DateFilterState } from "../../../components/DateFilter";
 import {
   applyDateFilter,
   getDateFilterSummary,
 } from "../../../utils/dateFilter";
+import {
+  groupChecksBySession,
+  CheckRecord,
+  ChecklistSession,
+} from "../../../utils/travoBlowerChecklist";
 
-// Pagination constants
-const ITEMS_PER_PAGE = 10;
-
-interface LaporanTravoBlowerItem {
-  id: string;
-  ID: string;
-  tanggal: string;
-  jam: string;
-  sekuriti: string;
-  jenis: string;
-  posisi_travo_blower: string;
-  jumlah: number;
-  status: string;
-  keterangan: string;
-  business_unit?: string;
-  created_at: string;
-}
+const MAX_ROWS = 500;
 
 export default function LaporanTravoBlowerList({
   navigation,
 }: {
   navigation: any;
 }) {
-  const [laporanTravoBlower, setLaporanTravoBlower] = useState<
-    LaporanTravoBlowerItem[]
-  >([]);
+  const [sessions, setSessions] = useState<ChecklistSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  // Apply date filter
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dateFilter, setDateFilter] = useState<DateFilterState>({
     startDate: null,
     endDate: null,
     isActive: false,
   });
 
-  // Get data filter based on user's business unit
   const { dataFilter, canSeeAllData, loading: filterLoading } = useDataFilter();
 
   useEffect(() => {
-    if (!filterLoading) {
-      resetPaginationAndFetch();
-    }
-  }, [dataFilter, filterLoading, searchQuery]);
+    if (!filterLoading) fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataFilter, filterLoading, dateFilter]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
-      if (!filterLoading) {
-        resetPaginationAndFetch();
-      }
+      if (!filterLoading) fetchData();
     });
     return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation, filterLoading]);
 
-  const resetPaginationAndFetch = () => {
-    setCurrentPage(1);
-    setLaporanTravoBlower([]);
-    fetchData(1, true);
-  };
-
-  const fetchData = async (
-    page: number = currentPage,
-    replace: boolean = false
-  ) => {
+  const fetchData = async () => {
     try {
-      if (page === 1) {
-        setLoading(true);
-      } else {
-        setLoadingMore(true);
-      }
+      setLoading(true);
       setError(null);
 
-      // Calculate offset for pagination
-      const from = (page - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-
-      // Start building the query
       let query = supabase
-        .from("laporan_travo_blower")
+        .from("travo_blower_checks")
         .select(
-          `
-          id, ID, tanggal, jam, sekuriti, jenis, posisi_travo_blower,
-          jumlah, status, keterangan, business_unit, created_at
-        `,
-          { count: "exact" }
+          `id, master_travo_blower_id, kondisi, keterangan, tanggal, jam,
+           sekuriti, created_at,
+           master_travo_blower!inner(jenis, business_unit)`
         )
         .order("created_at", { ascending: false })
-        .range(from, to);
+        .limit(MAX_ROWS);
 
-      // Apply business unit filter
-      query = applyBusinessUnitFilter(query, dataFilter);
+      // Filter BU pada kolom embedded master (non-master saja)
+      if (!canSeeAllData && dataFilter) {
+        query = query.eq("master_travo_blower.business_unit", dataFilter);
+      }
 
-      // Apply date filter
       query = applyDateFilter(query, dateFilter, "tanggal");
 
-      // Apply search filter if there's a search query
-      if (searchQuery.trim()) {
-        query = query.or(
-          `ID.ilike.%${searchQuery}%,jenis.ilike.%${searchQuery}%,posisi_travo_blower.ilike.%${searchQuery}%,status.ilike.%${searchQuery}%,keterangan.ilike.%${searchQuery}%,sekuriti.ilike.%${searchQuery}%,business_unit.ilike.%${searchQuery}%`
-        );
-      }
+      const { data, error: fetchError } = await query;
+      if (fetchError) throw fetchError;
 
-      const { data: result, error, count } = await query;
-
-      if (error) throw error;
-
-      if (result) {
-        // Set total count for pagination
-        setTotalItems(count || 0);
-
-        if (replace || page === 1) {
-          setLaporanTravoBlower(result);
-        } else {
-          setLaporanTravoBlower((prev) => [...prev, ...result]);
-        }
-      }
+      const records = (data || []) as unknown as CheckRecord[];
+      setSessions(groupChecksBySession(records));
     } catch (err) {
-      console.error("Error fetching laporan travo blower:", err);
+      console.error("Error fetching travo_blower_checks:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
       setRefreshing(false);
-      setLoadingMore(false);
     }
   };
 
-  const onRefresh = async () => {
+  const onRefresh = () => {
     setRefreshing(true);
-    resetPaginationAndFetch();
+    fetchData();
   };
 
-  const loadMoreData = () => {
-    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-    if (currentPage < totalPages && !loadingMore) {
-      const nextPage = currentPage + 1;
-      setCurrentPage(nextPage);
-      fetchData(nextPage, false);
-    }
+  const toggle = (key: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
   };
 
-  const goToPage = (page: number) => {
-    if (
-      page !== currentPage &&
-      page >= 1 &&
-      page <= Math.ceil(totalItems / ITEMS_PER_PAGE)
-    ) {
-      setCurrentPage(page);
-      fetchData(page, true);
-    }
-  };
-
-  const toggleExpanded = (itemId: string) => {
-    const newExpanded = new Set(expandedItems);
-    if (newExpanded.has(itemId)) {
-      newExpanded.delete(itemId);
-    } else {
-      newExpanded.add(itemId);
-    }
-    setExpandedItems(newExpanded);
-  };
-
-  const deleteItem = async (item: LaporanTravoBlowerItem) => {
+  const deleteSession = (session: ChecklistSession) => {
     Alert.alert(
       "Konfirmasi Hapus",
-      `Apakah Anda yakin ingin menghapus laporan "${item.ID}"?`,
+      `Hapus checklist ${formatDate(session.tanggal)} ${formatTime(
+        session.jam
+      )} oleh ${session.sekuriti}? (${session.items.length} item)`,
       [
         { text: "Batal", style: "cancel" },
         {
@@ -200,22 +120,16 @@ export default function LaporanTravoBlowerList({
           onPress: async () => {
             try {
               setLoading(true);
-
-              // Delete main record
-              const { error } = await supabase
-                .from("laporan_travo_blower")
+              const ids = session.items.map((i) => i.id);
+              const { error: delError } = await supabase
+                .from("travo_blower_checks")
                 .delete()
-                .eq("id", item.id);
-
-              if (error) throw error;
-
-              // Refresh current page
-              await fetchData(currentPage, true);
-
-              Alert.alert("Berhasil", "Data berhasil dihapus");
-            } catch (error: any) {
-              console.error("Delete error:", error);
-              Alert.alert("Error", `Gagal menghapus data: ${error.message}`);
+                .in("id", ids);
+              if (delError) throw delError;
+              await fetchData();
+              Alert.alert("Berhasil", "Checklist berhasil dihapus");
+            } catch (e: any) {
+              Alert.alert("Error", `Gagal menghapus: ${e.message}`);
             } finally {
               setLoading(false);
             }
@@ -227,8 +141,7 @@ export default function LaporanTravoBlowerList({
 
   const formatDate = (dateString: string) => {
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("id-ID", {
+      return new Date(dateString).toLocaleDateString("id-ID", {
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -238,169 +151,42 @@ export default function LaporanTravoBlowerList({
     }
   };
 
-  const formatTime = (timeString: string) => {
-    if (!timeString) return "-";
-    return timeString.substring(0, 5); // Show only HH:MM
-  };
+  const formatTime = (timeString: string) =>
+    !timeString ? "-" : timeString.substring(0, 5);
 
-  // Pagination Component
-  const renderPagination = () => {
-    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-    if (totalPages <= 1) return null;
-
-    const maxVisiblePages = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-
-    const pages = [];
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
-
-    return (
-      <View style={styles.paginationContainer}>
-        <View style={styles.paginationInfo}>
-          <Text style={styles.paginationText}>
-            Halaman {currentPage} dari {totalPages} ({totalItems} total item)
-          </Text>
-        </View>
-
-        <View style={styles.paginationControls}>
-          {/* First Page */}
-          {currentPage > 1 && (
-            <TouchableOpacity
-              style={styles.pageButton}
-              onPress={() => goToPage(1)}
-            >
-              <Icon
-                name="chevrons-left"
-                type="feather"
-                size={16}
-                color="#20c997"
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Previous Page */}
-          {currentPage > 1 && (
-            <TouchableOpacity
-              style={styles.pageButton}
-              onPress={() => goToPage(currentPage - 1)}
-            >
-              <Icon
-                name="chevron-left"
-                type="feather"
-                size={16}
-                color="#20c997"
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Page Numbers */}
-          {pages.map((page) => (
-            <TouchableOpacity
-              key={page}
-              style={[
-                styles.pageButton,
-                page === currentPage && styles.activePageButton,
-              ]}
-              onPress={() => goToPage(page)}
-            >
-              <Text
-                style={[
-                  styles.pageButtonText,
-                  page === currentPage && styles.activePageButtonText,
-                ]}
-              >
-                {page}
-              </Text>
-            </TouchableOpacity>
-          ))}
-
-          {/* Next Page */}
-          {currentPage < totalPages && (
-            <TouchableOpacity
-              style={styles.pageButton}
-              onPress={() => goToPage(currentPage + 1)}
-            >
-              <Icon
-                name="chevron-right"
-                type="feather"
-                size={16}
-                color="#20c997"
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Last Page */}
-          {currentPage < totalPages && (
-            <TouchableOpacity
-              style={styles.pageButton}
-              onPress={() => goToPage(totalPages)}
-            >
-              <Icon
-                name="chevrons-right"
-                type="feather"
-                size={16}
-                color="#20c997"
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Load More Button (Alternative to pagination) */}
-        {currentPage < totalPages && (
-          <TouchableOpacity
-            style={styles.loadMoreButton}
-            onPress={loadMoreData}
-            disabled={loadingMore}
-          >
-            {loadingMore ? (
-              <ActivityIndicator size="small" color="#20c997" />
-            ) : (
-              <Icon
-                name="chevron-down"
-                type="feather"
-                size={16}
-                color="#20c997"
-              />
-            )}
-            <Text style={styles.loadMoreText}>
-              {loadingMore ? "Memuat..." : "Muat Lebih Banyak"}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+  const filteredSessions = sessions.filter((s) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    if (s.sekuriti.toLowerCase().includes(q)) return true;
+    return s.items.some(
+      (i) =>
+        (i.master_travo_blower?.jenis || "").toLowerCase().includes(q) ||
+        i.kondisi.toLowerCase().includes(q) ||
+        (i.keterangan || "").toLowerCase().includes(q)
     );
-  };
+  });
 
-  const renderItem = (item: LaporanTravoBlowerItem, index: number) => {
-    const isExpanded = expandedItems.has(item.id);
-
+  const renderSession = (s: ChecklistSession, index: number) => {
+    const isExpanded = expanded.has(s.key);
     return (
       <Card
-        key={item.id}
+        key={s.key}
         containerStyle={[styles.itemCard, { marginTop: index === 0 ? 0 : 12 }]}
       >
-        {/* Header Section */}
         <View style={styles.cardHeader}>
           <View style={styles.headerLeft}>
-            <Text style={styles.idNumber}>{item.ID || "No ID"}</Text>
-            <View style={styles.equipmentTypeContainer}>
-              <Icon name="zap" type="feather" size={12} color="#6c757d" />
-              <Text style={styles.equipmentTypeText}>{item.jenis || "-"}</Text>
+            <Text style={styles.idNumber}>{s.sekuriti || "-"}</Text>
+            <View style={styles.rowCenter}>
+              <Icon name="check-square" type="feather" size={12} color="#6c757d" />
+              <Text style={styles.subText}>{s.items.length} item</Text>
             </View>
           </View>
           <View style={styles.headerRight}>
-            <Text style={styles.dateText}>{formatDate(item.tanggal)}</Text>
-            <Text style={styles.timeText}>{formatTime(item.jam)}</Text>
-            {item.business_unit && (
+            <Text style={styles.dateText}>{formatDate(s.tanggal)}</Text>
+            <Text style={styles.timeText}>{formatTime(s.jam)}</Text>
+            {s.business_unit && (
               <Badge
-                value={item.business_unit}
+                value={s.business_unit}
                 status="warning"
                 containerStyle={styles.businessUnitBadge}
                 textStyle={styles.badgeText}
@@ -409,22 +195,18 @@ export default function LaporanTravoBlowerList({
           </View>
         </View>
 
-        {/* Stats Row */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Icon name="zap" type="feather" size={16} color="#20c997" />
-            <Text style={styles.statText}>Laporan Travo Blower</Text>
+            <Icon name="check-circle" type="feather" size={16} color="#20c997" />
+            <Text style={styles.statText}>{s.baikCount} Baik</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Icon name="hash" type="feather" size={16} color="#17a2b8" />
-            <Text style={styles.statText}>{item.jumlah || 0} unit</Text>
+            <Icon name="x-circle" type="feather" size={16} color="#dc3545" />
+            <Text style={styles.statText}>{s.rusakCount} Rusak</Text>
           </View>
           <View style={styles.statDivider} />
-          <TouchableOpacity
-            style={styles.expandButton}
-            onPress={() => toggleExpanded(item.id)}
-          >
+          <TouchableOpacity style={styles.expandButton} onPress={() => toggle(s.key)}>
             <Icon
               name={isExpanded ? "chevron-up" : "chevron-down"}
               type="feather"
@@ -437,113 +219,35 @@ export default function LaporanTravoBlowerList({
           </TouchableOpacity>
         </View>
 
-        {/* Main Content */}
-        <View style={styles.cardContent}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Icon name="zap" type="feather" size={14} color="#495057" />
-              <Text style={styles.infoLabel}>Jenis</Text>
-            </View>
-            <Text style={styles.infoValue} numberOfLines={isExpanded ? 0 : 1}>
-              {item.jenis || "-"}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Icon name="map-pin" type="feather" size={14} color="#495057" />
-              <Text style={styles.infoLabel}>Posisi</Text>
-            </View>
-            <Text style={styles.infoValue} numberOfLines={isExpanded ? 0 : 1}>
-              {item.posisi_travo_blower || "-"}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Icon name="hash" type="feather" size={14} color="#495057" />
-              <Text style={styles.infoLabel}>Jumlah</Text>
-            </View>
-            <Text style={styles.infoValue} numberOfLines={1}>
-              {item.jumlah || 0} unit
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Icon
-                name="check-circle"
-                type="feather"
-                size={14}
-                color="#495057"
-              />
-              <Text style={styles.infoLabel}>Status</Text>
-            </View>
-            <Text style={styles.infoValue} numberOfLines={1}>
-              {item.status || "-"}
-            </Text>
-          </View>
-
-          {item.keterangan && (
-            <View style={styles.descriptionContainer}>
-              <Text style={styles.descriptionLabel}>Keterangan:</Text>
-              <Text
-                style={styles.descriptionText}
-                numberOfLines={isExpanded ? 0 : 2}
-              >
-                {item.keterangan}
-              </Text>
-            </View>
-          )}
-
-          {/* Expanded Content */}
-          {isExpanded && (
-            <View style={styles.expandedContent}>
-              <View style={styles.divider} />
-
-              <View style={styles.metadataContainer}>
-                <Text style={styles.metadataTitle}>Informasi Tambahan:</Text>
-                <Text style={styles.metadataText}>
-                  Dibuat: {formatDate(item.created_at)}
-                </Text>
-                <Text style={styles.metadataText}>
-                  Tanggal Laporan: {formatDate(item.tanggal)}
-                </Text>
-                <Text style={styles.metadataText}>
-                  Jam: {formatTime(item.jam)}
-                </Text>
-                <Text style={styles.metadataText}>
-                  Sekuriti: {item.sekuriti || "-"}
-                </Text>
-                {item.business_unit && (
-                  <Text style={styles.metadataText}>
-                    Business Unit: {item.business_unit}
+        {isExpanded && (
+          <View style={styles.cardContent}>
+            {s.items.map((it) => (
+              <View key={it.id} style={styles.itemRow}>
+                <View style={styles.itemRowLeft}>
+                  <Text style={styles.itemName}>
+                    {it.master_travo_blower?.jenis || "-"}
                   </Text>
-                )}
+                  {it.keterangan ? (
+                    <Text style={styles.itemNote}>{it.keterangan}</Text>
+                  ) : null}
+                </View>
+                <Badge
+                  value={it.kondisi}
+                  badgeStyle={{
+                    backgroundColor:
+                      it.kondisi === "Rusak" ? "#dc3545" : "#20c997",
+                  }}
+                  textStyle={styles.badgeText}
+                />
               </View>
-            </View>
-          )}
-        </View>
+            ))}
+          </View>
+        )}
 
-        {/* Action Buttons */}
         <View style={styles.cardFooter}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() =>
-              navigation.navigate("LaporanTravoBlowerCreate", {
-                editData: item,
-              })
-            }
-          >
-            <Icon name="edit-3" type="feather" size={16} color="#20c997" />
-            <Text style={styles.actionButtonText}>Edit</Text>
-          </TouchableOpacity>
-
-          <View style={styles.actionDivider} />
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => deleteItem(item)}
+            onPress={() => deleteSession(s)}
           >
             <Icon name="trash-2" type="feather" size={16} color="#dc3545" />
             <Text style={[styles.actionButtonText, { color: "#dc3545" }]}>
@@ -555,7 +259,6 @@ export default function LaporanTravoBlowerList({
     );
   };
 
-  // Show loading state while determining user permissions
   if (filterLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -569,43 +272,29 @@ export default function LaporanTravoBlowerList({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Laporan Travo Blower</Text>
-        <View style={styles.headerStats}>
-          <Text style={styles.headerSubtitle}>
-            {laporanTravoBlower.length} dari {totalItems}{" "}
-            {totalItems === 1 ? "report" : "reports"}
-          </Text>
-          <View style={styles.totalStats}>
-            <Icon name="zap" type="feather" size={12} color="#20c997" />
-            <Text style={styles.totalStatsText}>
-              {laporanTravoBlower.length} reports on current page
-            </Text>
-          </View>
-        </View>
+        <Text style={styles.headerTitle}>Checklist Travo Blower</Text>
+        <Text style={styles.headerSubtitle}>
+          {filteredSessions.length} sesi checklist
+        </Text>
       </View>
 
-      {/* Business Unit Filter Status */}
       {canSeeAllData && (
         <View style={styles.masterBadge}>
           <Icon name="star" type="feather" size={16} color="#333" />
           <Text style={styles.masterBadgeText}>
-            Master View - Showing all data from all business units
+            Master View - Semua business unit
           </Text>
         </View>
       )}
-
       {!canSeeAllData && dataFilter && (
         <View style={styles.filterBadge}>
           <Icon name="filter" type="feather" size={16} color="#1976d2" />
           <Text style={styles.filterBadgeText}>
-            Showing data for: {dataFilter.toUpperCase()}
+            Business unit: {dataFilter.toUpperCase()}
           </Text>
         </View>
       )}
-
-      {/* Date Filter Status */}
       {dateFilter.isActive && (
         <View style={styles.dateFilterBadge}>
           <Icon name="calendar" type="feather" size={16} color="#007bff" />
@@ -615,9 +304,8 @@ export default function LaporanTravoBlowerList({
         </View>
       )}
 
-      {/* Search Bar */}
       <SearchBar
-        placeholder="Cari berdasarkan ID, jenis, posisi, status, business unit..."
+        placeholder="Cari sekuriti, jenis, kondisi, keterangan..."
         onChangeText={setSearchQuery}
         value={searchQuery}
         containerStyle={styles.searchContainer}
@@ -629,30 +317,18 @@ export default function LaporanTravoBlowerList({
         lightTheme
       />
 
-      {/* Date Filter */}
-      <DateFilter
-        value={dateFilter}
-        onChange={setDateFilter}
-        themeColor="#007bff"
-      />
+      <DateFilter value={dateFilter} onChange={setDateFilter} themeColor="#007bff" />
 
-      {/* Add Button */}
       <View style={styles.addButtonContainer}>
         <Button
-          title="Tambah Laporan Baru"
+          title="Buat Checklist Baru"
           onPress={() => navigation.navigate("LaporanTravoBlowerCreate")}
           buttonStyle={styles.addButton}
           titleStyle={styles.addButtonText}
-          icon={{
-            name: "plus",
-            type: "feather",
-            color: "white",
-            size: 18,
-          }}
+          icon={{ name: "plus", type: "feather", color: "white", size: 18 }}
         />
       </View>
 
-      {/* Content */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -668,43 +344,30 @@ export default function LaporanTravoBlowerList({
           </View>
         ) : error ? (
           <View style={styles.centerContainer}>
-            <Icon
-              name="alert-circle"
-              type="feather"
-              size={48}
-              color="#dc3545"
-            />
+            <Icon name="alert-circle" type="feather" size={48} color="#dc3545" />
             <Text style={styles.errorText}>{error}</Text>
             <Button
               title="Coba Lagi"
-              onPress={() => fetchData(currentPage, true)}
+              onPress={fetchData}
               buttonStyle={styles.retryButton}
               type="outline"
             />
           </View>
-        ) : laporanTravoBlower.length === 0 ? (
+        ) : filteredSessions.length === 0 ? (
           <View style={styles.centerContainer}>
-            <Icon name="zap" type="feather" size={64} color="#6c757d" />
+            <Icon name="check-square" type="feather" size={64} color="#6c757d" />
             <Text style={styles.emptyTitle}>
-              {searchQuery ? "Tidak ada hasil" : "Belum ada data"}
+              {searchQuery ? "Tidak ada hasil" : "Belum ada checklist"}
             </Text>
             <Text style={styles.emptySubtitle}>
               {searchQuery
                 ? "Coba ubah kata kunci pencarian"
-                : "Tambahkan laporan travo blower pertama Anda"}
+                : "Buat checklist travo/blower pertama"}
             </Text>
-            {!searchQuery && (
-              <Button
-                title="Tambah Laporan"
-                onPress={() => navigation.navigate("LaporanTravoBlowerCreate")}
-                buttonStyle={styles.emptyButton}
-              />
-            )}
           </View>
         ) : (
           <View style={styles.listContainer}>
-            {laporanTravoBlower.map((item, index) => renderItem(item, index))}
-            {renderPagination()}
+            {filteredSessions.map((s, i) => renderSession(s, i))}
           </View>
         )}
       </ScrollView>
@@ -713,10 +376,7 @@ export default function LaporanTravoBlowerList({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
-  },
+  container: { flex: 1, backgroundColor: "#f8f9fa" },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -724,31 +384,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e9ecef",
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#212529",
-  },
-  headerStats: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#6c757d",
-  },
-  totalStats: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  totalStatsText: {
-    fontSize: 12,
-    color: "#20c997",
-    fontWeight: "500",
-  },
+  headerTitle: { fontSize: 24, fontWeight: "bold", color: "#212529" },
+  headerSubtitle: { fontSize: 14, color: "#6c757d", marginTop: 4 },
   masterBadge: {
     backgroundColor: "#ffd700",
     paddingHorizontal: 12,
@@ -760,12 +397,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  masterBadgeText: {
-    color: "#333",
-    fontWeight: "600",
-    fontSize: 14,
-    flex: 1,
-  },
+  masterBadgeText: { color: "#333", fontWeight: "600", fontSize: 14, flex: 1 },
   filterBadge: {
     backgroundColor: "#e3f2fd",
     paddingHorizontal: 12,
@@ -777,12 +409,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  filterBadgeText: {
-    color: "#1976d2",
-    fontWeight: "500",
-    fontSize: 14,
-    flex: 1,
+  filterBadgeText: { color: "#1976d2", fontWeight: "500", fontSize: 14, flex: 1 },
+  dateFilterBadge: {
+    backgroundColor: "#cce5ff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
+  dateFilterBadgeText: { color: "#007bff", fontWeight: "500", fontSize: 14, flex: 1 },
   searchContainer: {
     backgroundColor: "transparent",
     borderTopWidth: 0,
@@ -790,37 +429,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  searchInputContainer: {
-    backgroundColor: "white",
-    height: 44,
-  },
-  searchInput: {
-    fontSize: 16,
-  },
-  addButtonContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-  addButton: {
-    backgroundColor: "#20c997",
-    borderRadius: 8,
-    height: 48,
-  },
-  addButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-  },
-  listContainer: {
-    paddingTop: 8,
-  },
+  searchInputContainer: { backgroundColor: "white", height: 44 },
+  searchInput: { fontSize: 16 },
+  addButtonContainer: { paddingHorizontal: 16, paddingBottom: 8 },
+  addButton: { backgroundColor: "#20c997", borderRadius: 8, height: 48 },
+  addButtonText: { fontSize: 16, fontWeight: "600", marginLeft: 8 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 20 },
+  listContainer: { paddingTop: 8 },
   itemCard: {
     borderRadius: 12,
     elevation: 3,
@@ -841,43 +457,15 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e9ecef",
     backgroundColor: "#c6f7d6",
   },
-  headerLeft: {
-    flex: 1,
-  },
-  idNumber: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#212529",
-    marginBottom: 4,
-  },
-  equipmentTypeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  equipmentTypeText: {
-    fontSize: 12,
-    color: "#6c757d",
-    marginLeft: 4,
-  },
-  headerRight: {
-    alignItems: "flex-end",
-  },
-  dateText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#495057",
-  },
-  timeText: {
-    fontSize: 12,
-    color: "#6c757d",
-    marginTop: 2,
-  },
-  businessUnitBadge: {
-    marginTop: 4,
-  },
-  badgeText: {
-    fontSize: 10,
-  },
+  headerLeft: { flex: 1 },
+  idNumber: { fontSize: 18, fontWeight: "bold", color: "#212529", marginBottom: 4 },
+  rowCenter: { flexDirection: "row", alignItems: "center" },
+  subText: { fontSize: 12, color: "#6c757d", marginLeft: 4 },
+  headerRight: { alignItems: "flex-end" },
+  dateText: { fontSize: 14, fontWeight: "600", color: "#495057" },
+  timeText: { fontSize: 12, color: "#6c757d", marginTop: 2 },
+  businessUnitBadge: { marginTop: 4 },
+  badgeText: { fontSize: 10 },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -887,16 +475,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e9ecef",
   },
-  statItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  statText: {
-    fontSize: 12,
-    color: "#495057",
-    fontWeight: "500",
-  },
+  statItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  statText: { fontSize: 12, color: "#495057", fontWeight: "500" },
   statDivider: {
     width: 1,
     height: 16,
@@ -909,80 +489,19 @@ const styles = StyleSheet.create({
     gap: 4,
     marginLeft: "auto",
   },
-  expandText: {
-    fontSize: 12,
-    color: "#6c757d",
-    fontWeight: "500",
-  },
-  cardContent: {
-    padding: 16,
-    backgroundColor: "white",
-  },
-  infoRow: {
+  expandText: { fontSize: 12, color: "#6c757d", fontWeight: "500" },
+  cardContent: { padding: 16, backgroundColor: "white" },
+  itemRow: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f3f5",
   },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: 90,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: "#495057",
-    marginLeft: 6,
-    fontWeight: "500",
-  },
-  infoValue: {
-    flex: 1,
-    fontSize: 14,
-    color: "#212529",
-    marginLeft: 12,
-  },
-  descriptionContainer: {
-    marginTop: 8,
-    padding: 12,
-    backgroundColor: "#c6f7d6",
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: "#20c997",
-  },
-  descriptionLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#495057",
-    marginBottom: 4,
-  },
-  descriptionText: {
-    fontSize: 14,
-    color: "#212529",
-    lineHeight: 20,
-  },
-  expandedContent: {
-    marginTop: 12,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#e9ecef",
-    marginVertical: 16,
-  },
-  metadataContainer: {
-    padding: 12,
-    backgroundColor: "#c6f7d6",
-    borderRadius: 6,
-  },
-  metadataTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#495057",
-    marginBottom: 4,
-  },
-  metadataText: {
-    fontSize: 12,
-    color: "#6c757d",
-    marginBottom: 2,
-  },
+  itemRowLeft: { flex: 1, marginRight: 12 },
+  itemName: { fontSize: 14, color: "#212529", fontWeight: "500" },
+  itemNote: { fontSize: 12, color: "#6c757d", marginTop: 2 },
   cardFooter: {
     flexDirection: "row",
     borderTopWidth: 1,
@@ -997,26 +516,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 6,
   },
-  actionButtonText: {
-    fontSize: 14,
-    color: "#20c997",
-    fontWeight: "500",
-  },
-  actionDivider: {
-    width: 1,
-    backgroundColor: "#e9ecef",
-  },
+  actionButtonText: { fontSize: 14, color: "#20c997", fontWeight: "500" },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 60,
   },
-  loadingText: {
-    fontSize: 16,
-    color: "#6c757d",
-    marginTop: 16,
-  },
+  loadingText: { fontSize: 16, color: "#6c757d", marginTop: 16 },
   errorText: {
     fontSize: 16,
     color: "#dc3545",
@@ -1024,10 +531,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 20,
   },
-  retryButton: {
-    borderColor: "#dc3545",
-    borderWidth: 1,
-  },
+  retryButton: { borderColor: "#dc3545", borderWidth: 1 },
   emptyTitle: {
     fontSize: 20,
     fontWeight: "bold",
@@ -1041,90 +545,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
     paddingHorizontal: 32,
-  },
-  emptyButton: {
-    backgroundColor: "#20c997",
-    marginTop: 20,
-    paddingHorizontal: 32,
-  },
-  // Pagination Styles
-  paginationContainer: {
-    marginTop: 20,
-    marginBottom: 10,
-    paddingHorizontal: 16,
-  },
-  paginationInfo: {
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  paginationText: {
-    fontSize: 14,
-    color: "#6c757d",
-    textAlign: "center",
-  },
-  paginationControls: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 12,
-  },
-  pageButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#dee2e6",
-    backgroundColor: "white",
-    minWidth: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  activePageButton: {
-    backgroundColor: "#20c997",
-    borderColor: "#20c997",
-  },
-  pageButtonText: {
-    fontSize: 14,
-    color: "#20c997",
-    fontWeight: "500",
-  },
-  activePageButtonText: {
-    color: "white",
-  },
-  loadMoreButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: "white",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#dee2e6",
-    gap: 8,
-  },
-  loadMoreText: {
-    fontSize: 14,
-    color: "#20c997",
-    fontWeight: "500",
-  },
-  dateFilterBadge: {
-    backgroundColor: "#cce5ff",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  dateFilterBadgeText: {
-    color: "#007bff",
-    fontWeight: "500",
-    fontSize: 14,
-    flex: 1,
   },
 });
