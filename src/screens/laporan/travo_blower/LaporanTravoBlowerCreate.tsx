@@ -9,142 +9,109 @@ import {
   Alert,
 } from "react-native";
 import { Text, Card, Button, Input, Icon, Header } from "@rneui/themed";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import { RootStackParamList } from "../../../types/navigation";
-import { generateUUID, generateDataID } from "../../../utils/uuid";
+import { useNavigation } from "@react-navigation/native";
 import DropdownSelector from "../../../components/DropdownSelector";
 import { useUserBusinessUnit } from "../../../hooks/useUserBusinessUnit";
 import { useSecurityOptions } from "../../../hooks/useSecurityNames";
+import { useTravoBlowerMaster } from "../../../hooks/useTravoBlowerMaster";
 import {
   createTimeChangeHandler,
   openTimePicker,
 } from "../../../utils/timeHandler";
-
-interface UserProfile {
-  id: string;
-  business_unit: string | null;
-}
+import {
+  validateChecklist,
+  buildCheckRows,
+  ChecklistEntry,
+  Kondisi,
+} from "../../../utils/travoBlowerChecklist";
 
 export default function LaporanTravoBlowerCreate() {
   const navigation = useNavigation();
-  const route =
-    useRoute<RouteProp<RootStackParamList, "LaporanTravoBlowerCreate">>();
-  const editData = route.params?.editData;
 
   const { businessUnit, loading: businessUnitLoading } = useUserBusinessUnit();
-
   const {
-    dropdownOptions: securityOptions,
-    loading: securityLoading,
-    error: securityError,
-  } = useSecurityOptions(businessUnit);
+    items: masterItems,
+    loading: masterLoading,
+    error: masterError,
+  } = useTravoBlowerMaster(businessUnit);
+  const { dropdownOptions: securityOptions, loading: securityLoading } =
+    useSecurityOptions(businessUnit);
 
-  const [formData, setFormData] = useState({
-    id: editData?.id || undefined,
-    ID: editData?.ID || "",
-    tanggal: editData?.tanggal || new Date().toISOString().split("T")[0],
-    jam:
-      editData?.jam ||
-      new Date().toLocaleTimeString("en-US", {
-        hour12: false,
-        timeZone: "Asia/Singapore",
-      }),
-    sekuriti: editData?.sekuriti || "",
-    jenis: editData?.jenis || "",
-    posisi_travo_blower: editData?.posisi_travo_blower || "",
-    jumlah: editData?.jumlah?.toString() || "",
-    status: editData?.status || "",
-    keterangan: editData?.keterangan || "",
-    business_unit: editData?.business_unit || "",
+  const [header, setHeader] = useState({
+    tanggal: new Date().toISOString().split("T")[0],
+    jam: new Date().toLocaleTimeString("en-US", {
+      hour12: false,
+      timeZone: "Asia/Singapore",
+    }),
+    sekuriti: "",
   });
 
+  const [entries, setEntries] = useState<Record<string, ChecklistEntry>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [validationErrors, setValidationErrors] = useState<{
-    [key: string]: string;
-  }>({});
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [showValidation, setShowValidation] = useState(false);
 
-  // Fetch user profile on component mount
-  useEffect(() => {
-    fetchUserProfile();
-  }, []);
+  const setKondisi = (id: string, kondisi: Kondisi) => {
+    setEntries((prev) => ({
+      ...prev,
+      [id]: { kondisi, keterangan: prev[id]?.keterangan || "" },
+    }));
+  };
 
-  const fetchUserProfile = async () => {
+  const setKeterangan = (id: string, keterangan: string) => {
+    setEntries((prev) => ({
+      ...prev,
+      [id]: { kondisi: prev[id]?.kondisi ?? null, keterangan },
+    }));
+  };
+
+  const onChangeTime = createTimeChangeHandler(setHeader, "jam");
+
+  const showDatePickerDialog = () => {
+    DateTimePickerAndroid.open({
+      value: new Date(header.tanggal),
+      onChange: (_e, selectedDate?: Date) => {
+        if (selectedDate) {
+          setHeader((prev) => ({
+            ...prev,
+            tanggal: selectedDate.toISOString().split("T")[0],
+          }));
+        }
+      },
+      mode: "date",
+    });
+  };
+
+  const showTimePickerDialog = () => {
     try {
-      setProfileLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        throw new Error("User tidak ditemukan");
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, business_unit")
-        .eq("id", user.id)
-        .single();
-
-      if (error) {
-        console.error("Error fetching profile:", error);
-        throw error;
-      }
-
-      setUserProfile(data);
-
-      // Auto-populate business_unit if not editing existing data
-      if (!editData && data.business_unit) {
-        setFormData((prev) => ({
-          ...prev,
-          business_unit: data.business_unit,
-        }));
-      }
-    } catch (error: any) {
-      console.error("Profile fetch error:", error);
-      setError("Gagal mengambil data profil pengguna");
-    } finally {
-      setProfileLoading(false);
+      const [h, m] = header.jam.split(":");
+      const d = new Date();
+      d.setHours(parseInt(h) || 0);
+      d.setMinutes(parseInt(m) || 0);
+      d.setSeconds(0);
+      openTimePicker(d, onChangeTime);
+    } catch {
+      openTimePicker(new Date(), onChangeTime);
     }
   };
 
-  const validateForm = () => {
-    const errors: { [key: string]: string } = {};
-
-    if (!formData.jenis.trim()) {
-      errors.jenis = "Jenis wajib diisi";
-    }
-    if (!formData.posisi_travo_blower.trim()) {
-      errors.posisi_travo_blower = "Posisi travo/blower wajib diisi";
-    }
-    if (!formData.jumlah.trim()) {
-      errors.jumlah = "Jumlah wajib diisi";
-    }
-    if (!formData.status.trim()) {
-      errors.status = "Status wajib diisi";
-    }
-    if (!formData.business_unit.trim()) {
-      errors.business_unit =
-        "Business unit tidak tersedia, hubungi administrator";
-    }
-
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+  const validation = validateChecklist(masterItems, entries, header);
 
   const handleSubmit = async () => {
-    if (profileLoading) {
-      Alert.alert("Info", "Mohon tunggu, sedang memuat data profil...");
-      return;
-    }
-
-    if (!validateForm()) {
-      setError("Mohon lengkapi semua field yang wajib diisi");
+    setShowValidation(true);
+    if (!validation.valid) {
+      if (validation.noItems) {
+        setError("Tidak ada item travo/blower untuk business unit ini");
+      } else if (validation.sekuritiMissing) {
+        setError("Pilih nama sekuriti terlebih dahulu");
+      } else {
+        setError(
+          `Masih ada ${validation.unselectedIds.length} item yang belum ditandai`
+        );
+      }
       return;
     }
 
@@ -152,99 +119,24 @@ export default function LaporanTravoBlowerCreate() {
       setLoading(true);
       setError(null);
 
-      const formattedId = generateDataID();
-      const recordId = formData.id || generateUUID();
-
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error("User tidak ditemukan");
-      }
+      if (!user) throw new Error("User tidak ditemukan");
 
-      // Convert jumlah to number for database
-      const dataToSave = {
-        ...formData,
-        jumlah: parseInt(formData.jumlah) || 0,
-      };
+      const rows = buildCheckRows(masterItems, entries, header);
+      const { error: insertError } = await supabase
+        .from("travo_blower_checks")
+        .insert(rows);
+      if (insertError) throw insertError;
 
-      if (editData) {
-        // Update existing record
-        const dataToUpdate = {
-          ...dataToSave,
-          ID: formData.ID || formattedId,
-          user_id: user.id,
-        };
-
-        const { error: updateError } = await supabase
-          .from("laporan_travo_blower")
-          .update(dataToUpdate)
-          .eq("id", formData.id);
-
-        if (updateError) throw updateError;
-      } else {
-        // Insert new record
-        const dataToInsert = {
-          ...dataToSave,
-          id: recordId,
-          ID: formattedId,
-          user_id: user.id,
-        };
-
-        const { error: insertError } = await supabase
-          .from("laporan_travo_blower")
-          .insert([dataToInsert]);
-
-        if (insertError) throw insertError;
-      }
-
-      Alert.alert(
-        "Berhasil",
-        editData ? "Data berhasil diperbarui" : "Data berhasil disimpan",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
-      );
-    } catch (error: any) {
-      setError(error.message);
+      Alert.alert("Berhasil", "Checklist berhasil disimpan", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Date/Time functions
-  const onChangeDate = (event: any, selectedDate?: Date) => {
-    if (selectedDate) {
-      const currentDate = selectedDate.toISOString().split("T")[0];
-      setFormData({ ...formData, tanggal: currentDate });
-    }
-  };
-
-  const onChangeTime = createTimeChangeHandler(setFormData, "jam");
-
-  const showDatePickerDialog = () => {
-    DateTimePickerAndroid.open({
-      value: new Date(formData.tanggal),
-      onChange: onChangeDate,
-      mode: "date",
-    });
-  };
-
-  const showTimePickerDialog = () => {
-    try {
-      // Parse time string (HH:mm:ss format) into Date object
-      const timeParts = formData.jam.split(":");
-      const hours = parseInt(timeParts[0]) || 0;
-      const minutes = parseInt(timeParts[1]) || 0;
-
-      const timeDate = new Date();
-      timeDate.setHours(hours);
-      timeDate.setMinutes(minutes);
-      timeDate.setSeconds(0);
-
-      openTimePicker(timeDate, onChangeTime);
-    } catch (error) {
-      console.error("Error parsing time:", error);
-      // Fallback to current time
-      openTimePicker(new Date(), onChangeTime);
     }
   };
 
@@ -271,13 +163,14 @@ export default function LaporanTravoBlowerCreate() {
     </TouchableOpacity>
   );
 
-  // Show loading screen while fetching profile
-  if (profileLoading) {
+  const initialLoading = businessUnitLoading || masterLoading;
+
+  if (initialLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <Header
           centerComponent={{
-            text: "Tambah Laporan Travo Blower",
+            text: "Checklist Travo Blower",
             style: { color: "white", fontSize: 18, fontWeight: "bold" },
           }}
           leftComponent={{
@@ -291,7 +184,7 @@ export default function LaporanTravoBlowerCreate() {
         />
         <View style={styles.loadingContainer}>
           <Icon name="loader" type="feather" size={32} color="#20c997" />
-          <Text style={styles.loadingText}>Memuat data profil...</Text>
+          <Text style={styles.loadingText}>Memuat data checklist...</Text>
         </View>
       </SafeAreaView>
     );
@@ -301,9 +194,7 @@ export default function LaporanTravoBlowerCreate() {
     <SafeAreaView style={styles.container}>
       <Header
         centerComponent={{
-          text: editData
-            ? "Edit Laporan Travo Blower"
-            : "Tambah Laporan Travo Blower",
+          text: "Checklist Travo Blower",
           style: { color: "white", fontSize: 18, fontWeight: "bold" },
         }}
         leftComponent={{
@@ -325,25 +216,19 @@ export default function LaporanTravoBlowerCreate() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Form Header */}
           <View style={styles.formHeader}>
             <Icon
-              name="zap"
+              name="check-square"
               type="feather"
               size={32}
               color="#20c997"
               containerStyle={styles.headerIcon}
             />
-            <Text style={styles.formTitle}>
-              {editData
-                ? "Edit Data Laporan Travo Blower"
-                : "Data Laporan Travo Blower Baru"}
-            </Text>
+            <Text style={styles.formTitle}>Checklist Travo/Blower</Text>
             <Text style={styles.formSubtitle}>
-              Lengkapi informasi laporan travo blower
+              Tandai kondisi tiap unit: Baik atau Rusak
             </Text>
-            {/* Business Unit Info */}
-            {userProfile?.business_unit && (
+            {businessUnit && (
               <View style={styles.businessUnitInfo}>
                 <Icon
                   name="building"
@@ -352,225 +237,156 @@ export default function LaporanTravoBlowerCreate() {
                   color="#20c997"
                 />
                 <Text style={styles.businessUnitText}>
-                  Business Unit: {userProfile.business_unit}
+                  Business Unit: {businessUnit}
                 </Text>
               </View>
             )}
           </View>
 
-          {/* Basic Information Card */}
+          {/* Header sesi */}
           <Card containerStyle={styles.card}>
             <View style={styles.cardHeader}>
               <Icon name="info" type="feather" size={18} color="#495057" />
-              <Text style={styles.cardTitle}>Informasi Dasar</Text>
+              <Text style={styles.cardTitle}>Informasi Sesi</Text>
             </View>
-
-            <View style={styles.dateTimeSection}>
-              <Text style={styles.sectionLabel}>Tanggal & Waktu</Text>
-              <View style={styles.timeGrid}>
-                <DateTimeSelector
-                  label="Tanggal"
-                  value={formData.tanggal}
-                  onPress={showDatePickerDialog}
-                  icon="calendar"
-                />
-                <DateTimeSelector
-                  label="Jam"
-                  value={formData.jam}
-                  onPress={showTimePickerDialog}
-                  icon="clock"
-                />
-              </View>
+            <View style={styles.timeGrid}>
+              <DateTimeSelector
+                label="Tanggal"
+                value={header.tanggal}
+                onPress={showDatePickerDialog}
+                icon="calendar"
+              />
+              <DateTimeSelector
+                label="Jam"
+                value={header.jam}
+                onPress={showTimePickerDialog}
+                icon="clock"
+              />
             </View>
-          </Card>
-
-          {/* Equipment Information Card */}
-          <Card containerStyle={styles.card}>
-            <View style={styles.cardHeader}>
-              <Icon name="zap" type="feather" size={18} color="#495057" />
-              <Text style={styles.cardTitle}>Informasi Peralatan</Text>
-            </View>
-
-            <Input
-              placeholder="Jenis travo/blower"
-              label="Jenis *"
-              value={formData.jenis}
-              onChangeText={(text) => {
-                setFormData({ ...formData, jenis: text });
-                if (validationErrors.jenis) {
-                  setValidationErrors({
-                    ...validationErrors,
-                    jenis: "",
-                  });
+            <View style={{ marginTop: 12 }}>
+              <DropdownSelector
+                label="Sekuriti *"
+                placeholder="Pilih nama sekuriti"
+                value={header.sekuriti}
+                options={securityOptions}
+                onSelect={(value) =>
+                  setHeader((prev) => ({ ...prev, sekuriti: value }))
                 }
-              }}
-              errorMessage={validationErrors.jenis}
-              leftIcon={{
-                name: "zap",
-                type: "feather",
-                size: 20,
-                color: "#6c757d",
-              }}
-              inputContainerStyle={styles.inputContainer}
-              labelStyle={styles.inputLabel}
-            />
-
-            <Input
-              placeholder="Lokasi atau posisi peralatan"
-              label="Posisi Travo/Blower *"
-              value={formData.posisi_travo_blower}
-              onChangeText={(text) => {
-                setFormData({ ...formData, posisi_travo_blower: text });
-                if (validationErrors.posisi_travo_blower) {
-                  setValidationErrors({
-                    ...validationErrors,
-                    posisi_travo_blower: "",
-                  });
+                leftIcon={{
+                  name: "shield",
+                  type: "feather",
+                  size: 20,
+                  color: "#6c757d",
+                }}
+                disabled={securityLoading}
+                required
+                errorMessage={
+                  showValidation && validation.sekuritiMissing
+                    ? "Sekuriti wajib dipilih"
+                    : undefined
                 }
-              }}
-              errorMessage={validationErrors.posisi_travo_blower}
-              leftIcon={{
-                name: "map-pin",
-                type: "feather",
-                size: 20,
-                color: "#6c757d",
-              }}
-              inputContainerStyle={styles.inputContainer}
-              labelStyle={styles.inputLabel}
-            />
-
-            <View style={styles.twoColumnRow}>
-              <View style={styles.halfInput}>
-                <Input
-                  placeholder="Jumlah unit"
-                  label="Jumlah *"
-                  value={formData.jumlah}
-                  onChangeText={(text) => {
-                    setFormData({ ...formData, jumlah: text });
-                    if (validationErrors.jumlah) {
-                      setValidationErrors({
-                        ...validationErrors,
-                        jumlah: "",
-                      });
-                    }
-                  }}
-                  errorMessage={validationErrors.jumlah}
-                  keyboardType="numeric"
-                  leftIcon={{
-                    name: "hash",
-                    type: "feather",
-                    size: 20,
-                    color: "#6c757d",
-                  }}
-                  inputContainerStyle={styles.inputContainer}
-                  labelStyle={styles.inputLabel}
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Input
-                  placeholder="Status kondisi"
-                  label="Status *"
-                  value={formData.status}
-                  onChangeText={(text) => {
-                    setFormData({ ...formData, status: text });
-                    if (validationErrors.status) {
-                      setValidationErrors({
-                        ...validationErrors,
-                        status: "",
-                      });
-                    }
-                  }}
-                  errorMessage={validationErrors.status}
-                  leftIcon={{
-                    name: "check-circle",
-                    type: "feather",
-                    size: 20,
-                    color: "#6c757d",
-                  }}
-                  inputContainerStyle={styles.inputContainer}
-                  labelStyle={styles.inputLabel}
-                />
-              </View>
+              />
             </View>
           </Card>
 
-          {/* Usage Information Card */}
-          <Card containerStyle={styles.card}>
-            <View style={styles.cardHeader}>
-              <Icon name="target" type="feather" size={18} color="#495057" />
-              <Text style={styles.cardTitle}>Informasi Penggunaan</Text>
+          {/* Daftar checklist */}
+          {masterError ? (
+            <View style={styles.errorContainer}>
+              <Icon
+                name="alert-circle"
+                type="feather"
+                size={18}
+                color="#dc3545"
+              />
+              <Text style={styles.errorText}>Error memuat item: {masterError}</Text>
             </View>
-
-            <Input
-              placeholder="Catatan atau keterangan tambahan"
-              label="Keterangan"
-              value={formData.keterangan}
-              onChangeText={(text) =>
-                setFormData({ ...formData, keterangan: text })
-              }
-              multiline
-              numberOfLines={3}
-              leftIcon={{
-                name: "message-square",
-                type: "feather",
-                size: 20,
-                color: "#6c757d",
-              }}
-              inputContainerStyle={styles.textAreaContainer}
-              labelStyle={styles.inputLabel}
-            />
-          </Card>
-
-          {/* Additional Information Card - UPDATED SECTION */}
-          <Card containerStyle={styles.card}>
-            <View style={styles.cardHeader}>
-              <Icon name="edit-3" type="feather" size={18} color="#495057" />
-              <Text style={styles.cardTitle}>Informasi Tambahan</Text>
+          ) : masterItems.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Icon name="inbox" type="feather" size={40} color="#6c757d" />
+              <Text style={styles.emptyText}>
+                Belum ada master travo/blower untuk business unit ini
+              </Text>
             </View>
-
-            <View style={styles.twoColumnRow}>
-              <View style={styles.halfInput}>
-                {securityLoading ? (
-                  <View style={styles.dropdownLoadingContainer}>
-                    <Icon
-                      name="loader"
-                      type="feather"
-                      size={16}
-                      color="#20c997"
-                    />
-                    <Text style={styles.dropdownLoadingText}>Loading...</Text>
-                  </View>
-                ) : (
-                  <>
-                    <DropdownSelector
-                      label="Sekuriti"
-                      placeholder="Pilih nama sekuriti"
-                      value={formData.sekuriti}
-                      options={securityOptions}
-                      onSelect={(value) =>
-                        setFormData({ ...formData, sekuriti: value })
-                      }
-                      leftIcon={{
-                        name: "shield",
-                        type: "feather",
-                        size: 20,
-                        color: "#6c757d",
-                      }}
-                      disabled={businessUnitLoading || securityLoading}
-                      required={false}
-                    />
-                    {securityError && (
-                      <Text style={styles.dropdownErrorText}>
-                        Error: {securityError}
+          ) : (
+            masterItems.map((item) => {
+              const entry = entries[item.id];
+              const unselected =
+                showValidation && (entry?.kondisi ?? null) === null;
+              return (
+                <Card
+                  key={item.id}
+                  containerStyle={[
+                    styles.card,
+                    unselected ? styles.cardInvalid : null,
+                  ]}
+                >
+                  <Text style={styles.itemTitle}>{item.jenis}</Text>
+                  <View style={styles.kondisiRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.kondisiBtn,
+                        entry?.kondisi === "Baik"
+                          ? styles.kondisiBaikActive
+                          : null,
+                      ]}
+                      onPress={() => setKondisi(item.id, "Baik")}
+                    >
+                      <Icon
+                        name="check-circle"
+                        type="feather"
+                        size={16}
+                        color={entry?.kondisi === "Baik" ? "white" : "#20c997"}
+                      />
+                      <Text
+                        style={[
+                          styles.kondisiText,
+                          entry?.kondisi === "Baik"
+                            ? styles.kondisiTextActive
+                            : { color: "#20c997" },
+                        ]}
+                      >
+                        Baik
                       </Text>
-                    )}
-                  </>
-                )}
-              </View>
-            </View>
-          </Card>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.kondisiBtn,
+                        entry?.kondisi === "Rusak"
+                          ? styles.kondisiRusakActive
+                          : null,
+                      ]}
+                      onPress={() => setKondisi(item.id, "Rusak")}
+                    >
+                      <Icon
+                        name="x-circle"
+                        type="feather"
+                        size={16}
+                        color={entry?.kondisi === "Rusak" ? "white" : "#dc3545"}
+                      />
+                      <Text
+                        style={[
+                          styles.kondisiText,
+                          entry?.kondisi === "Rusak"
+                            ? styles.kondisiTextActive
+                            : { color: "#dc3545" },
+                        ]}
+                      >
+                        Rusak
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Input
+                    placeholder="Keterangan (opsional)"
+                    value={entry?.keterangan || ""}
+                    onChangeText={(text) => setKeterangan(item.id, text)}
+                    inputContainerStyle={styles.inputContainer}
+                    containerStyle={{ paddingHorizontal: 0, marginTop: 8 }}
+                  />
+                </Card>
+              );
+            })
+          )}
 
-          {/* Error Message */}
           {error && (
             <View style={styles.errorContainer}>
               <Icon
@@ -583,22 +399,6 @@ export default function LaporanTravoBlowerCreate() {
             </View>
           )}
 
-          {/* Business Unit Validation Error */}
-          {validationErrors.business_unit && (
-            <View style={styles.errorContainer}>
-              <Icon
-                name="alert-triangle"
-                type="feather"
-                size={18}
-                color="#ffc107"
-              />
-              <Text style={styles.errorText}>
-                {validationErrors.business_unit}
-              </Text>
-            </View>
-          )}
-
-          {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <Button
               title="Batal"
@@ -611,7 +411,7 @@ export default function LaporanTravoBlowerCreate() {
             <Button
               title={loading ? "Menyimpan..." : "Simpan"}
               onPress={handleSubmit}
-              disabled={loading || profileLoading || securityLoading}
+              disabled={loading || masterItems.length === 0}
               buttonStyle={styles.submitButton}
               titleStyle={styles.submitButtonText}
               loading={loading}
@@ -619,12 +419,7 @@ export default function LaporanTravoBlowerCreate() {
               icon={
                 loading
                   ? undefined
-                  : {
-                      name: "save",
-                      type: "feather",
-                      color: "white",
-                      size: 18,
-                    }
+                  : { name: "save", type: "feather", color: "white", size: 18 }
               }
             />
           </View>
@@ -635,30 +430,17 @@ export default function LaporanTravoBlowerCreate() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
+  container: { flex: 1, backgroundColor: "#f8f9fa" },
+  keyboardView: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: 20 },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f8f9fa",
   },
-  loadingText: {
-    fontSize: 16,
-    color: "#6c757d",
-    marginTop: 16,
-  },
+  loadingText: { fontSize: 16, color: "#6c757d", marginTop: 16 },
   formHeader: {
     alignItems: "center",
     paddingVertical: 24,
@@ -680,11 +462,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 4,
   },
-  formSubtitle: {
-    fontSize: 14,
-    color: "#6c757d",
-    textAlign: "center",
-  },
+  formSubtitle: { fontSize: 14, color: "#6c757d", textAlign: "center" },
   businessUnitInfo: {
     flexDirection: "row",
     alignItems: "center",
@@ -695,11 +473,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     gap: 6,
   },
-  businessUnitText: {
-    fontSize: 12,
-    color: "#0d5d2a",
-    fontWeight: "500",
-  },
+  businessUnitText: { fontSize: 12, color: "#0d5d2a", fontWeight: "500" },
   card: {
     borderRadius: 12,
     marginHorizontal: 16,
@@ -711,6 +485,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     borderWidth: 0,
   },
+  cardInvalid: { borderWidth: 1, borderColor: "#dc3545" },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -725,37 +500,7 @@ const styles = StyleSheet.create({
     color: "#212529",
     marginLeft: 8,
   },
-  inputContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#dee2e6",
-    paddingBottom: 4,
-  },
-  textAreaContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#dee2e6",
-    paddingBottom: 4,
-    minHeight: 60,
-  },
-  inputLabel: {
-    color: "#495057",
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 4,
-  },
-  dateTimeSection: {
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#495057",
-    marginBottom: 12,
-  },
-  timeGrid: {
-    flexDirection: "row",
-    gap: 12,
-  },
+  timeGrid: { flexDirection: "row", gap: 12 },
   dateTimeCard: {
     flex: 1,
     backgroundColor: "#c6f7d6",
@@ -768,49 +513,48 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 12,
   },
-  dateTimeText: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  dateTimeLabel: {
-    fontSize: 12,
-    color: "#6c757d",
-    marginBottom: 2,
-  },
-  dateTimeValue: {
-    fontSize: 14,
-    fontWeight: "500",
+  dateTimeText: { flex: 1, marginLeft: 8 },
+  dateTimeLabel: { fontSize: 12, color: "#6c757d", marginBottom: 2 },
+  dateTimeValue: { fontSize: 14, fontWeight: "500", color: "#212529" },
+  itemTitle: {
+    fontSize: 16,
+    fontWeight: "600",
     color: "#212529",
+    marginBottom: 12,
   },
-  twoColumnRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  halfInput: {
+  kondisiRow: { flexDirection: "row", gap: 12 },
+  kondisiBtn: {
     flex: 1,
-  },
-  dropdownLoadingContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    backgroundColor: "#f8f9fa",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#dee2e6",
-    gap: 8,
-    marginBottom: 16,
+    backgroundColor: "white",
   },
-  dropdownLoadingText: {
-    color: "#20c997",
-    fontSize: 12,
-    fontWeight: "500",
+  kondisiBaikActive: { backgroundColor: "#20c997", borderColor: "#20c997" },
+  kondisiRusakActive: { backgroundColor: "#dc3545", borderColor: "#dc3545" },
+  kondisiText: { fontSize: 14, fontWeight: "600" },
+  kondisiTextActive: { color: "white" },
+  inputContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#dee2e6",
+    paddingBottom: 4,
   },
-  dropdownErrorText: {
-    color: "#dc3545",
-    fontSize: 11,
-    marginTop: -12,
-    marginBottom: 8,
-    paddingLeft: 12,
+  emptyBox: {
+    alignItems: "center",
+    padding: 32,
+    marginHorizontal: 16,
+    marginVertical: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#6c757d",
+    marginTop: 12,
+    textAlign: "center",
   },
   errorContainer: {
     flexDirection: "row",
@@ -823,21 +567,14 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: "#dc3545",
   },
-  errorText: {
-    color: "#721c24",
-    marginLeft: 8,
-    flex: 1,
-    fontSize: 14,
-  },
+  errorText: { color: "#721c24", marginLeft: 8, flex: 1, fontSize: 14 },
   actionButtons: {
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingTop: 16,
     gap: 12,
   },
-  buttonContainer: {
-    flex: 1,
-  },
+  buttonContainer: { flex: 1 },
   cancelButton: {
     borderColor: "#6c757d",
     borderWidth: 1,
@@ -845,17 +582,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     height: 48,
   },
-  cancelButtonText: {
-    color: "#6c757d",
-    fontWeight: "600",
-  },
-  submitButton: {
-    backgroundColor: "#20c997",
-    borderRadius: 8,
-    height: 48,
-  },
-  submitButtonText: {
-    fontWeight: "600",
-    marginLeft: 8,
-  },
+  cancelButtonText: { color: "#6c757d", fontWeight: "600" },
+  submitButton: { backgroundColor: "#20c997", borderRadius: 8, height: 48 },
+  submitButtonText: { fontWeight: "600", marginLeft: 8 },
 });
