@@ -5,6 +5,56 @@ export type Kondisi = "Baik" | "Rusak";
 export interface MasterItem {
   id: string;
   jenis: string;
+  pemilik?: string | null;
+  nomor_unit?: string | number | null;
+}
+
+/**
+ * Label item checklist yang lebih detail: jenis, pemilik, dan nomor unit.
+ * Contoh: "Travo - PT ABC (No. 3)". Bagian yang kosong diabaikan.
+ */
+export function formatTravoLabel(item: {
+  jenis?: string | null;
+  pemilik?: string | null;
+  nomor_unit?: string | number | null;
+}): string {
+  const parts: string[] = [];
+  const jenis = (item.jenis ?? "").trim();
+  parts.push(jenis || "Travo");
+  const pemilik = (item.pemilik ?? "").toString().trim();
+  if (pemilik) parts.push(pemilik);
+  let label = parts.join(" - ");
+  const nomor = item.nomor_unit == null ? "" : item.nomor_unit.toString().trim();
+  if (nomor) label += ` (No. ${nomor})`;
+  return label;
+}
+
+export interface MasterGroup {
+  key: string;
+  pemilik: string;
+  items: MasterItem[];
+}
+
+/**
+ * Kelompokkan item master per pemilik (untuk tampilan accordion).
+ * Item tanpa pemilik masuk grup "Tanpa Pemilik". Grup diurutkan
+ * alfabetis; urutan item dalam grup mengikuti urutan input.
+ */
+export function groupMasterByPemilik(items: MasterItem[]): MasterGroup[] {
+  const map = new Map<string, MasterGroup>();
+  for (const it of items) {
+    const label = (it.pemilik ?? "").toString().trim() || "Tanpa Pemilik";
+    const key = label.toLowerCase();
+    let g = map.get(key);
+    if (!g) {
+      g = { key, pemilik: label, items: [] };
+      map.set(key, g);
+    }
+    g.items.push(it);
+  }
+  return Array.from(map.values()).sort((a, b) =>
+    a.pemilik.localeCompare(b.pemilik)
+  );
 }
 
 export interface ChecklistEntry {
@@ -81,7 +131,12 @@ export interface CheckRecord {
   jam: string;
   sekuriti: string;
   created_at: string;
-  master_travo_blower?: { jenis: string; business_unit: string } | null;
+  master_travo_blower?: {
+    jenis: string;
+    business_unit: string;
+    pemilik?: string | null;
+    nomor_unit?: string | number | null;
+  } | null;
 }
 
 export interface ChecklistSession {

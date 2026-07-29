@@ -24,6 +24,8 @@ import {
 import {
   validateChecklist,
   buildCheckRows,
+  formatTravoLabel,
+  groupMasterByPemilik,
   ChecklistEntry,
   Kondisi,
 } from "../../../utils/travoBlowerChecklist";
@@ -53,6 +55,17 @@ export default function LaporanTravoBlowerCreate() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showValidation, setShowValidation] = useState(false);
+  const [expandedOwners, setExpandedOwners] = useState<Set<string>>(new Set());
+
+  const masterGroups = groupMasterByPemilik(masterItems);
+
+  const toggleOwner = (key: string) => {
+    setExpandedOwners((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
 
   const setKondisi = (id: string, kondisi: Kondisi) => {
     setEntries((prev) => ({
@@ -113,6 +126,14 @@ export default function LaporanTravoBlowerCreate() {
         setError(
           `Masih ada ${validation.unselectedIds.length} item yang belum ditandai`
         );
+        // Buka otomatis grup pemilik yang masih punya item belum ditandai
+        const unselected = new Set(validation.unselectedIds);
+        const toOpen = masterGroups
+          .filter((g) => g.items.some((it) => unselected.has(it.id)))
+          .map((g) => g.key);
+        if (toOpen.length) {
+          setExpandedOwners((prev) => new Set([...prev, ...toOpen]));
+        }
       }
       return;
     }
@@ -311,19 +332,62 @@ export default function LaporanTravoBlowerCreate() {
               </Text>
             </View>
           ) : (
-            masterItems.map((item) => {
-              const entry = entries[item.id];
-              const unselected =
-                showValidation && (entry?.kondisi ?? null) === null;
+            masterGroups.map((group) => {
+              const isOpen = expandedOwners.has(group.key);
+              const selectedCount = group.items.filter(
+                (it) => (entries[it.id]?.kondisi ?? null) !== null
+              ).length;
+              const groupHasUnselected =
+                showValidation && selectedCount < group.items.length;
               return (
-                <Card
-                  key={item.id}
-                  containerStyle={[
-                    styles.card,
-                    unselected ? styles.cardInvalid : null,
-                  ]}
-                >
-                  <Text style={styles.itemTitle}>{item.jenis}</Text>
+                <View key={group.key} style={styles.ownerSection}>
+                  <TouchableOpacity
+                    style={[
+                      styles.ownerHeader,
+                      groupHasUnselected ? styles.ownerHeaderInvalid : null,
+                    ]}
+                    onPress={() => toggleOwner(group.key)}
+                    activeOpacity={0.7}
+                  >
+                    <Icon
+                      name="user"
+                      type="feather"
+                      size={18}
+                      color="#20c997"
+                    />
+                    <View style={styles.ownerHeaderText}>
+                      <Text style={styles.ownerName}>{group.pemilik}</Text>
+                      <Text
+                        style={[
+                          styles.ownerMeta,
+                          groupHasUnselected ? styles.ownerMetaInvalid : null,
+                        ]}
+                      >
+                        {selectedCount}/{group.items.length} ditandai
+                        {groupHasUnselected ? " · perlu dilengkapi" : ""}
+                      </Text>
+                    </View>
+                    <Icon
+                      name={isOpen ? "chevron-up" : "chevron-down"}
+                      type="feather"
+                      size={22}
+                      color="#6c757d"
+                    />
+                  </TouchableOpacity>
+                  {isOpen &&
+                    group.items.map((item) => {
+                      const entry = entries[item.id];
+                      const unselected =
+                        showValidation && (entry?.kondisi ?? null) === null;
+                      return (
+                        <Card
+                          key={item.id}
+                          containerStyle={[
+                            styles.card,
+                            unselected ? styles.cardInvalid : null,
+                          ]}
+                        >
+                  <Text style={styles.itemTitle}>{formatTravoLabel(item)}</Text>
                   <View style={styles.kondisiRow}>
                     <TouchableOpacity
                       style={[
@@ -385,7 +449,10 @@ export default function LaporanTravoBlowerCreate() {
                     inputContainerStyle={styles.inputContainer}
                     containerStyle={{ paddingHorizontal: 0, marginTop: 8 }}
                   />
-                </Card>
+                        </Card>
+                      );
+                    })}
+                </View>
               );
             })
           )}
@@ -489,6 +556,25 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   cardInvalid: { borderWidth: 1, borderColor: "#dc3545" },
+  ownerSection: { marginTop: 4 },
+  ownerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#c6f7d6",
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#a7ecc0",
+  },
+  ownerHeaderInvalid: { borderColor: "#dc3545", borderWidth: 1.5 },
+  ownerHeaderText: { flex: 1 },
+  ownerName: { fontSize: 16, fontWeight: "700", color: "#0d5d2a" },
+  ownerMeta: { fontSize: 12, color: "#4b6b57", marginTop: 2 },
+  ownerMetaInvalid: { color: "#dc3545", fontWeight: "600" },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",

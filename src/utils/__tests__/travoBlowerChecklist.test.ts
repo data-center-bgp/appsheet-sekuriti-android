@@ -2,6 +2,8 @@ import {
   validateChecklist,
   buildCheckRows,
   groupChecksBySession,
+  groupMasterByPemilik,
+  formatTravoLabel,
   MasterItem,
   ChecklistEntry,
   ChecklistHeader,
@@ -86,5 +88,55 @@ describe("groupChecksBySession", () => {
     expect(groups[0].baikCount).toBe(1);
     expect(groups[0].rusakCount).toBe(1);
     expect(groups[0].business_unit).toBe("unit-x");
+  });
+});
+
+describe("formatTravoLabel", () => {
+  it("menggabungkan jenis, pemilik, dan nomor unit", () => {
+    expect(
+      formatTravoLabel({ jenis: "Travo", pemilik: "PT ABC", nomor_unit: 3 })
+    ).toBe("Travo - PT ABC (No. 3)");
+  });
+
+  it("mengabaikan bagian yang kosong/null", () => {
+    expect(formatTravoLabel({ jenis: "Travo", pemilik: null, nomor_unit: null })).toBe(
+      "Travo"
+    );
+    expect(formatTravoLabel({ jenis: "Travo", pemilik: "Budi" })).toBe(
+      "Travo - Budi"
+    );
+    expect(
+      formatTravoLabel({ jenis: "Travo", nomor_unit: "7A" })
+    ).toBe("Travo (No. 7A)");
+  });
+
+  it("fallback ke 'Travo' saat jenis kosong", () => {
+    expect(formatTravoLabel({ jenis: "", pemilik: "Budi", nomor_unit: 1 })).toBe(
+      "Travo - Budi (No. 1)"
+    );
+  });
+});
+
+describe("groupMasterByPemilik", () => {
+  it("mengelompokkan item per pemilik dan mengurutkan alfabetis", () => {
+    const items: MasterItem[] = [
+      { id: "1", jenis: "Travo", pemilik: "PT B", nomor_unit: 1 },
+      { id: "2", jenis: "Travo", pemilik: "PT A", nomor_unit: 1 },
+      { id: "3", jenis: "Travo", pemilik: "PT B", nomor_unit: 2 },
+    ];
+    const groups = groupMasterByPemilik(items);
+    expect(groups.map((g) => g.pemilik)).toEqual(["PT A", "PT B"]);
+    expect(groups[1].items.map((i) => i.id)).toEqual(["1", "3"]);
+  });
+
+  it("item tanpa pemilik masuk grup 'Tanpa Pemilik'", () => {
+    const items: MasterItem[] = [
+      { id: "1", jenis: "Travo", pemilik: null },
+      { id: "2", jenis: "Travo", pemilik: "  " },
+    ];
+    const groups = groupMasterByPemilik(items);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].pemilik).toBe("Tanpa Pemilik");
+    expect(groups[0].items).toHaveLength(2);
   });
 });

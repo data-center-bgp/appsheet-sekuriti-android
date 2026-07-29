@@ -19,6 +19,7 @@ import {
 } from "../../../utils/dateFilter";
 import {
   groupChecksBySession,
+  formatTravoLabel,
   CheckRecord,
   ChecklistSession,
 } from "../../../utils/travoBlowerChecklist";
@@ -67,14 +68,19 @@ export default function LaporanTravoBlowerList({
         .select(
           `id, master_travo_blower_id, kondisi, keterangan, tanggal, jam,
            sekuriti, created_at,
-           master_travo_blower!inner(jenis, business_unit)`
+           master_travo_blower!inner(jenis, business_unit, pemilik, nomor_unit)`
         )
         .order("created_at", { ascending: false })
         .limit(MAX_ROWS);
 
-      // Filter BU pada kolom embedded master (non-master saja)
+      // Filter BU pada kolom embedded master (non-master saja).
+      // profiles.business_unit HURUF BESAR, master_travo_blower lowercase —
+      // lowercase-kan nilai filter agar cocok (lihat useSecurityNames).
       if (!canSeeAllData && dataFilter) {
-        query = query.eq("master_travo_blower.business_unit", dataFilter);
+        query = query.eq(
+          "master_travo_blower.business_unit",
+          dataFilter.toLowerCase()
+        );
       }
 
       query = applyDateFilter(query, dateFilter, "tanggal");
@@ -225,7 +231,9 @@ export default function LaporanTravoBlowerList({
               <View key={it.id} style={styles.itemRow}>
                 <View style={styles.itemRowLeft}>
                   <Text style={styles.itemName}>
-                    {it.master_travo_blower?.jenis || "-"}
+                    {it.master_travo_blower
+                      ? formatTravoLabel(it.master_travo_blower)
+                      : "-"}
                   </Text>
                   {it.keterangan ? (
                     <Text style={styles.itemNote}>{it.keterangan}</Text>

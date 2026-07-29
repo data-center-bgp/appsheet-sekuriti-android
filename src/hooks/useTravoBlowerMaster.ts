@@ -21,12 +21,14 @@ export const useTravoBlowerMaster = (
 
       let query = supabase
         .from("master_travo_blower")
-        .select("id, jenis")
+        .select("id, jenis, pemilik, nomor_unit")
         .order("jenis", { ascending: true });
 
-      // Filter BU kecuali role master (lihat Risiko #1: casing)
+      // Filter BU kecuali role master. business_unit di profiles disimpan
+      // HURUF BESAR (mis. "SHIPYARD") sedangkan master_travo_blower lowercase,
+      // jadi lowercase-kan nilai filter — sama seperti useSecurityNames.
       if (businessUnit && businessUnit.toLowerCase() !== "master") {
-        query = query.eq("business_unit", businessUnit);
+        query = query.eq("business_unit", businessUnit.toLowerCase());
       }
 
       const { data, error: fetchError } = await query;
