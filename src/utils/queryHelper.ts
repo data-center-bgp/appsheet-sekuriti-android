@@ -1,24 +1,33 @@
-import { PostgrestFilterBuilder } from "@supabase/postgrest-js";
-
 /**
- * Apply business unit filter to Supabase query
+ * Apply business unit filter to a Supabase query.
+ *
+ * Kept generic over the query-builder type `Q` (instead of importing
+ * `PostgrestFilterBuilder`) so it stays compatible across
+ * @supabase/postgrest-js versions — that class's generic arity has changed
+ * between releases, which previously broke this file on upgrade. Callers get
+ * back exactly the query type they passed in, so chaining still type-checks.
+ *
  * @param query Supabase query builder
  * @param businessUnitFilter Business unit filter (null for master users)
  * @param columnName Column name for business unit (default: 'business_unit')
  * @returns Modified query with business unit filter applied
  */
-export const applyBusinessUnitFilter = <T extends Record<string, unknown>>(
-  query: PostgrestFilterBuilder<any, T, any>,
+export const applyBusinessUnitFilter = <Q>(
+  query: Q,
   businessUnitFilter: string | null,
   columnName: string = "business_unit"
-): PostgrestFilterBuilder<any, T, any> => {
+): Q => {
   // If no filter (master user), return query as-is
   if (!businessUnitFilter) {
     return query;
   }
 
-  // Apply business unit filter
-  return query.eq(columnName as any, businessUnitFilter);
+  // Apply business unit filter. `.eq()` returns the same builder instance,
+  // so casting back to `Q` preserves the caller's type.
+  return (query as { eq: (column: string, value: string) => Q }).eq(
+    columnName,
+    businessUnitFilter
+  );
 };
 
 /**
