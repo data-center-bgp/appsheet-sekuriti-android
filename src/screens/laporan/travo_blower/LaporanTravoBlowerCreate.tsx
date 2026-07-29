@@ -59,6 +59,8 @@ export default function LaporanTravoBlowerCreate() {
       ...prev,
       [id]: { kondisi, keterangan: prev[id]?.keterangan || "" },
     }));
+    // Bersihkan banner error validasi begitu user menandai item
+    if (error) setError(null);
   };
 
   const setKeterangan = (id: string, keterangan: string) => {
@@ -269,9 +271,10 @@ export default function LaporanTravoBlowerCreate() {
                 placeholder="Pilih nama sekuriti"
                 value={header.sekuriti}
                 options={securityOptions}
-                onSelect={(value) =>
-                  setHeader((prev) => ({ ...prev, sekuriti: value }))
-                }
+                onSelect={(value) => {
+                  setHeader((prev) => ({ ...prev, sekuriti: value }));
+                  if (error) setError(null);
+                }}
                 leftIcon={{
                   name: "shield",
                   type: "feather",
