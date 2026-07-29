@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Image,
 } from "react-native";
 import { Text, Card, Button, Input, Icon, Header } from "@rneui/themed";
 import { useState, useEffect } from "react";
@@ -24,6 +25,11 @@ import {
   createTimeChangeHandler,
   openTimePicker,
 } from "../../../utils/timeHandler";
+import {
+  pickImageFromGallery,
+  takePhoto,
+  uploadPhotoToStorage,
+} from "../../../utils/photoDoMasukHandler";
 
 interface UserProfile {
   id: string;
@@ -99,7 +105,12 @@ export default function LaporanTambatCreate() {
     lokasi: editData?.lokasi || "",
     sekuriti: editData?.sekuriti || "",
     business_unit: editData?.business_unit || "",
+    evidence: (editData?.evidence as string | null) || null,
   });
+
+  // Foto evidence yang baru dipilih (URI lokal, belum diupload).
+  const [localImageUri, setLocalImageUri] = useState<string | null>(null);
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +164,33 @@ export default function LaporanTambatCreate() {
     }
   };
 
+  const pickEvidenceFrom = async (source: "camera" | "gallery") => {
+    try {
+      const result =
+        source === "camera"
+          ? await takePhoto()
+          : await pickImageFromGallery();
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setLocalImageUri(result.assets[0].uri);
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Gagal mengambil foto");
+    }
+  };
+
+  const handlePickEvidence = () => {
+    Alert.alert("Foto Evidence", "Pilih sumber foto", [
+      { text: "Kamera", onPress: () => pickEvidenceFrom("camera") },
+      { text: "Galeri", onPress: () => pickEvidenceFrom("gallery") },
+      { text: "Batal", style: "cancel" },
+    ]);
+  };
+
+  const handleRemoveEvidence = () => {
+    setLocalImageUri(null);
+    setFormData((prev) => ({ ...prev, evidence: null }));
+  };
+
   const validateForm = () => {
     const errors: { [key: string]: string } = {};
 
@@ -202,12 +240,32 @@ export default function LaporanTambatCreate() {
         throw new Error("User tidak ditemukan");
       }
 
+      // Upload foto evidence bila ada foto baru yang dipilih.
+      let evidenceUrl = formData.evidence;
+      if (localImageUri) {
+        setUploadingEvidence(true);
+        const fileName = `tambat_${recordId}_${new Date().getTime()}.jpg`;
+        const uploadResult = await uploadPhotoToStorage(
+          localImageUri,
+          fileName,
+          "fotodomasuk"
+        );
+        setUploadingEvidence(false);
+        if (!uploadResult.success) {
+          throw new Error(
+            uploadResult.error || "Gagal mengupload foto evidence"
+          );
+        }
+        evidenceUrl = uploadResult.url ?? null;
+      }
+
       if (editData) {
         // Update existing record
         const dataToUpdate = {
           ...formData,
           ID: formData.ID || formattedId,
           user_id: user.id,
+          evidence: evidenceUrl,
         };
 
         const { error: updateError } = await supabase
@@ -223,6 +281,7 @@ export default function LaporanTambatCreate() {
           id: recordId,
           ID: formattedId,
           user_id: user.id,
+          evidence: evidenceUrl,
         };
 
         const { error: insertError } = await supabase
@@ -240,6 +299,7 @@ export default function LaporanTambatCreate() {
     } catch (error: any) {
       setError(error.message);
     } finally {
+      setUploadingEvidence(false);
       setLoading(false);
     }
   };
@@ -787,6 +847,67 @@ export default function LaporanTambatCreate() {
             </View>
           </Card>
 
+          {/* Evidence Photo Card */}
+          <Card containerStyle={styles.card}>
+            <View style={styles.cardHeader}>
+              <Icon name="camera" type="feather" size={18} color="#495057" />
+              <Text style={styles.cardTitle}>Foto Evidence</Text>
+            </View>
+
+            {localImageUri || formData.evidence ? (
+              <View style={styles.evidencePreviewWrapper}>
+                <Image
+                  source={{ uri: localImageUri ?? formData.evidence! }}
+                  style={styles.evidenceImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.evidenceActions}>
+                  <Button
+                    title="Ganti"
+                    type="outline"
+                    onPress={handlePickEvidence}
+                    buttonStyle={styles.evidenceChangeBtn}
+                    titleStyle={styles.evidenceChangeBtnText}
+                    icon={{
+                      name: "refresh-cw",
+                      type: "feather",
+                      size: 16,
+                      color: "#6f42c1",
+                    }}
+                    containerStyle={styles.evidenceActionContainer}
+                  />
+                  <Button
+                    title="Hapus"
+                    type="outline"
+                    onPress={handleRemoveEvidence}
+                    buttonStyle={styles.evidenceRemoveBtn}
+                    titleStyle={styles.evidenceRemoveBtnText}
+                    icon={{
+                      name: "trash-2",
+                      type: "feather",
+                      size: 16,
+                      color: "#dc3545",
+                    }}
+                    containerStyle={styles.evidenceActionContainer}
+                  />
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.evidenceEmpty}
+                onPress={handlePickEvidence}
+              >
+                <Icon name="camera" type="feather" size={28} color="#6f42c1" />
+                <Text style={styles.evidenceEmptyText}>
+                  Tambah Foto Evidence
+                </Text>
+                <Text style={styles.evidenceEmptyHint}>
+                  Ambil dari kamera atau galeri
+                </Text>
+              </TouchableOpacity>
+            )}
+          </Card>
+
           {/* Error Message */}
           {error && (
             <View style={styles.errorContainer}>
@@ -826,10 +947,17 @@ export default function LaporanTambatCreate() {
               containerStyle={styles.buttonContainer}
             />
             <Button
-              title={loading ? "Menyimpan..." : "Simpan"}
+              title={
+                uploadingEvidence
+                  ? "Mengupload foto..."
+                  : loading
+                  ? "Menyimpan..."
+                  : "Simpan"
+              }
               onPress={handleSubmit}
               disabled={
                 loading ||
+                uploadingEvidence ||
                 profileLoading ||
                 securityLoading ||
                 vesselLoading ||
@@ -1090,5 +1218,68 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontWeight: "600",
     marginLeft: 8,
+  },
+  evidenceEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 28,
+    borderWidth: 1,
+    borderColor: "#dee2e6",
+    borderStyle: "dashed",
+    borderRadius: 8,
+    backgroundColor: "#f8f9fa",
+    gap: 4,
+  },
+  evidenceEmptyText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6f42c1",
+    marginTop: 8,
+  },
+  evidenceEmptyHint: {
+    fontSize: 12,
+    color: "#6c757d",
+  },
+  evidencePreviewWrapper: {
+    alignItems: "center",
+  },
+  evidenceImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: "#e9ecef",
+  },
+  evidenceActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 12,
+    alignSelf: "stretch",
+  },
+  evidenceActionContainer: {
+    flex: 1,
+  },
+  evidenceChangeBtn: {
+    borderColor: "#6f42c1",
+    borderWidth: 1,
+    backgroundColor: "transparent",
+    borderRadius: 8,
+    height: 44,
+  },
+  evidenceChangeBtnText: {
+    color: "#6f42c1",
+    fontWeight: "600",
+    marginLeft: 6,
+  },
+  evidenceRemoveBtn: {
+    borderColor: "#dc3545",
+    borderWidth: 1,
+    backgroundColor: "transparent",
+    borderRadius: 8,
+    height: 44,
+  },
+  evidenceRemoveBtnText: {
+    color: "#dc3545",
+    fontWeight: "600",
+    marginLeft: 6,
   },
 });
