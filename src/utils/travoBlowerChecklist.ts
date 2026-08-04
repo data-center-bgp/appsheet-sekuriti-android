@@ -1,6 +1,6 @@
 import { generateUUID } from "./uuid";
 
-export type Kondisi = "Baik" | "Rusak";
+export type Kondisi = "Nyala" | "Mati";
 
 export interface MasterItem {
   id: string;
@@ -147,8 +147,8 @@ export interface ChecklistSession {
   business_unit: string | null;
   created_at: string;
   items: CheckRecord[];
-  baikCount: number;
-  rusakCount: number;
+  nyalaCount: number;
+  matiCount: number;
 }
 
 export function groupChecksBySession(checks: CheckRecord[]): ChecklistSession[] {
@@ -165,14 +165,14 @@ export function groupChecksBySession(checks: CheckRecord[]): ChecklistSession[] 
         business_unit: c.master_travo_blower?.business_unit ?? null,
         created_at: c.created_at,
         items: [],
-        baikCount: 0,
-        rusakCount: 0,
+        nyalaCount: 0,
+        matiCount: 0,
       };
       map.set(key, s);
     }
     s.items.push(c);
-    if (c.kondisi === "Baik") s.baikCount++;
-    else if (c.kondisi === "Rusak") s.rusakCount++;
+    if (c.kondisi === "Nyala") s.nyalaCount++;
+    else if (c.kondisi === "Mati") s.matiCount++;
     if (c.created_at > s.created_at) s.created_at = c.created_at;
   }
   return Array.from(map.values()).sort((a, b) =>

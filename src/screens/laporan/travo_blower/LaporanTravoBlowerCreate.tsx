@@ -249,7 +249,7 @@ export default function LaporanTravoBlowerCreate() {
             />
             <Text style={styles.formTitle}>Checklist Travo/Blower</Text>
             <Text style={styles.formSubtitle}>
-              Tandai kondisi tiap unit: Baik atau Rusak
+              Tandai kondisi tiap unit: Nyala atau Mati
             </Text>
             {businessUnit && (
               <View style={styles.businessUnitInfo}>
@@ -392,53 +392,53 @@ export default function LaporanTravoBlowerCreate() {
                     <TouchableOpacity
                       style={[
                         styles.kondisiBtn,
-                        entry?.kondisi === "Baik"
-                          ? styles.kondisiBaikActive
+                        entry?.kondisi === "Nyala"
+                          ? styles.kondisiNyalaActive
                           : null,
                       ]}
-                      onPress={() => setKondisi(item.id, "Baik")}
+                      onPress={() => setKondisi(item.id, "Nyala")}
                     >
                       <Icon
-                        name="check-circle"
+                        name="zap"
                         type="feather"
                         size={16}
-                        color={entry?.kondisi === "Baik" ? "white" : "#20c997"}
+                        color={entry?.kondisi === "Nyala" ? "white" : "#20c997"}
                       />
                       <Text
                         style={[
                           styles.kondisiText,
-                          entry?.kondisi === "Baik"
+                          entry?.kondisi === "Nyala"
                             ? styles.kondisiTextActive
                             : { color: "#20c997" },
                         ]}
                       >
-                        Baik
+                        Nyala
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[
                         styles.kondisiBtn,
-                        entry?.kondisi === "Rusak"
-                          ? styles.kondisiRusakActive
+                        entry?.kondisi === "Mati"
+                          ? styles.kondisiMatiActive
                           : null,
                       ]}
-                      onPress={() => setKondisi(item.id, "Rusak")}
+                      onPress={() => setKondisi(item.id, "Mati")}
                     >
                       <Icon
-                        name="x-circle"
+                        name="zap-off"
                         type="feather"
                         size={16}
-                        color={entry?.kondisi === "Rusak" ? "white" : "#dc3545"}
+                        color={entry?.kondisi === "Mati" ? "white" : "#dc3545"}
                       />
                       <Text
                         style={[
                           styles.kondisiText,
-                          entry?.kondisi === "Rusak"
+                          entry?.kondisi === "Mati"
                             ? styles.kondisiTextActive
                             : { color: "#dc3545" },
                         ]}
                       >
-                        Rusak
+                        Mati
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -624,8 +624,8 @@ const styles = StyleSheet.create({
     borderColor: "#dee2e6",
     backgroundColor: "white",
   },
-  kondisiBaikActive: { backgroundColor: "#20c997", borderColor: "#20c997" },
-  kondisiRusakActive: { backgroundColor: "#dc3545", borderColor: "#dc3545" },
+  kondisiNyalaActive: { backgroundColor: "#20c997", borderColor: "#20c997" },
+  kondisiMatiActive: { backgroundColor: "#dc3545", borderColor: "#dc3545" },
   kondisiText: { fontSize: 14, fontWeight: "600" },
   kondisiTextActive: { color: "white" },
   inputContainer: {

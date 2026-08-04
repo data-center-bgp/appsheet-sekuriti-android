@@ -203,13 +203,13 @@ export default function LaporanTravoBlowerList({
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Icon name="check-circle" type="feather" size={16} color="#20c997" />
-            <Text style={styles.statText}>{s.baikCount} Baik</Text>
+            <Icon name="zap" type="feather" size={16} color="#20c997" />
+            <Text style={styles.statText}>{s.nyalaCount} Nyala</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Icon name="x-circle" type="feather" size={16} color="#dc3545" />
-            <Text style={styles.statText}>{s.rusakCount} Rusak</Text>
+            <Icon name="zap-off" type="feather" size={16} color="#dc3545" />
+            <Text style={styles.statText}>{s.matiCount} Mati</Text>
           </View>
           <View style={styles.statDivider} />
           <TouchableOpacity style={styles.expandButton} onPress={() => toggle(s.key)}>
@@ -243,7 +243,7 @@ export default function LaporanTravoBlowerList({
                   value={it.kondisi}
                   badgeStyle={{
                     backgroundColor:
-                      it.kondisi === "Rusak" ? "#dc3545" : "#20c997",
+                      it.kondisi === "Mati" ? "#dc3545" : "#20c997",
                   }}
                   textStyle={styles.badgeText}
                 />
