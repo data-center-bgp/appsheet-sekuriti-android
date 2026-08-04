@@ -20,6 +20,7 @@ import {
 import {
   groupChecksBySession,
   formatTravoLabel,
+  kondisiLabel,
   CheckRecord,
   ChecklistSession,
 } from "../../../utils/travoBlowerChecklist";
@@ -240,10 +241,10 @@ export default function LaporanTravoBlowerList({
                   ) : null}
                 </View>
                 <Badge
-                  value={it.kondisi}
+                  value={kondisiLabel(it.kondisi)}
                   badgeStyle={{
                     backgroundColor:
-                      it.kondisi === "Mati" ? "#dc3545" : "#20c997",
+                      it.kondisi === "mati" ? "#dc3545" : "#20c997",
                   }}
                   textStyle={styles.badgeText}
                 />

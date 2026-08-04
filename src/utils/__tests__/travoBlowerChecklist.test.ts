@@ -4,6 +4,7 @@ import {
   groupChecksBySession,
   groupMasterByPemilik,
   formatTravoLabel,
+  kondisiLabel,
   MasterItem,
   ChecklistEntry,
   ChecklistHeader,
@@ -19,7 +20,7 @@ const header: ChecklistHeader = { tanggal: "2026-07-29", jam: "08:00:00", sekuri
 describe("validateChecklist", () => {
   it("invalid saat ada item belum dipilih", () => {
     const entries: Record<string, ChecklistEntry> = {
-      m1: { kondisi: "Nyala", keterangan: "" },
+      m1: { kondisi: "nyala", keterangan: "" },
       m2: { kondisi: null, keterangan: "" },
     };
     const r = validateChecklist(items, entries, header);
@@ -29,8 +30,8 @@ describe("validateChecklist", () => {
 
   it("invalid saat sekuriti kosong", () => {
     const entries: Record<string, ChecklistEntry> = {
-      m1: { kondisi: "Nyala", keterangan: "" },
-      m2: { kondisi: "Mati", keterangan: "x" },
+      m1: { kondisi: "nyala", keterangan: "" },
+      m2: { kondisi: "mati", keterangan: "x" },
     };
     const r = validateChecklist(items, entries, { ...header, sekuriti: "" });
     expect(r.sekuritiMissing).toBe(true);
@@ -45,8 +46,8 @@ describe("validateChecklist", () => {
 
   it("valid saat semua item dipilih dan sekuriti ada", () => {
     const entries: Record<string, ChecklistEntry> = {
-      m1: { kondisi: "Nyala", keterangan: "" },
-      m2: { kondisi: "Mati", keterangan: "bising" },
+      m1: { kondisi: "nyala", keterangan: "" },
+      m2: { kondisi: "mati", keterangan: "bising" },
     };
     expect(validateChecklist(items, entries, header).valid).toBe(true);
   });
@@ -55,20 +56,20 @@ describe("validateChecklist", () => {
 describe("buildCheckRows", () => {
   it("membuat satu baris per item dengan field yang benar", () => {
     const entries: Record<string, ChecklistEntry> = {
-      m1: { kondisi: "Nyala", keterangan: "  ok  " },
-      m2: { kondisi: "Mati", keterangan: "bising" },
+      m1: { kondisi: "nyala", keterangan: "  ok  " },
+      m2: { kondisi: "mati", keterangan: "bising" },
     };
     const rows = buildCheckRows(items, entries, header);
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
       master_travo_blower_id: "m1",
-      kondisi: "Nyala",
+      kondisi: "nyala",
       keterangan: "ok",
       tanggal: "2026-07-29",
       jam: "08:00:00",
       sekuriti: "Budi",
     });
-    expect(rows[1].kondisi).toBe("Mati");
+    expect(rows[1].kondisi).toBe("mati");
     expect(rows[0].id).toMatch(/^[0-9a-f-]{36}$/);
     expect(rows[0].id).not.toBe(rows[1].id);
   });
@@ -77,9 +78,9 @@ describe("buildCheckRows", () => {
 describe("groupChecksBySession", () => {
   it("mengelompokkan per tanggal+jam+sekuriti dan menghitung nyala/mati", () => {
     const checks: CheckRecord[] = [
-      { id: "a", master_travo_blower_id: "m1", kondisi: "Nyala", keterangan: "", tanggal: "2026-07-29", jam: "08:00:00", sekuriti: "Budi", created_at: "2026-07-29T01:00:00Z", master_travo_blower: { jenis: "Travo A", business_unit: "unit-x" } },
-      { id: "b", master_travo_blower_id: "m2", kondisi: "Mati", keterangan: "x", tanggal: "2026-07-29", jam: "08:00:00", sekuriti: "Budi", created_at: "2026-07-29T01:00:01Z", master_travo_blower: { jenis: "Blower B", business_unit: "unit-x" } },
-      { id: "c", master_travo_blower_id: "m1", kondisi: "Nyala", keterangan: "", tanggal: "2026-07-28", jam: "09:00:00", sekuriti: "Ani", created_at: "2026-07-28T02:00:00Z", master_travo_blower: { jenis: "Travo A", business_unit: "unit-x" } },
+      { id: "a", master_travo_blower_id: "m1", kondisi: "nyala", keterangan: "", tanggal: "2026-07-29", jam: "08:00:00", sekuriti: "Budi", created_at: "2026-07-29T01:00:00Z", master_travo_blower: { jenis: "Travo A", business_unit: "unit-x" } },
+      { id: "b", master_travo_blower_id: "m2", kondisi: "mati", keterangan: "x", tanggal: "2026-07-29", jam: "08:00:00", sekuriti: "Budi", created_at: "2026-07-29T01:00:01Z", master_travo_blower: { jenis: "Blower B", business_unit: "unit-x" } },
+      { id: "c", master_travo_blower_id: "m1", kondisi: "nyala", keterangan: "", tanggal: "2026-07-28", jam: "09:00:00", sekuriti: "Ani", created_at: "2026-07-28T02:00:00Z", master_travo_blower: { jenis: "Travo A", business_unit: "unit-x" } },
     ];
     const groups = groupChecksBySession(checks);
     expect(groups).toHaveLength(2);
@@ -114,6 +115,14 @@ describe("formatTravoLabel", () => {
     expect(formatTravoLabel({ jenis: "", pemilik: "Budi", nomor_unit: 1 })).toBe(
       "Travo - Budi (No. 1)"
     );
+  });
+});
+
+describe("kondisiLabel", () => {
+  it("memetakan nilai tersimpan ke label tampilan", () => {
+    expect(kondisiLabel("nyala")).toBe("Nyala");
+    expect(kondisiLabel("mati")).toBe("Mati");
+    expect(kondisiLabel("apa")).toBe("apa");
   });
 });
 

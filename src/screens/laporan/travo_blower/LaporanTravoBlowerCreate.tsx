@@ -392,22 +392,22 @@ export default function LaporanTravoBlowerCreate() {
                     <TouchableOpacity
                       style={[
                         styles.kondisiBtn,
-                        entry?.kondisi === "Nyala"
+                        entry?.kondisi === "nyala"
                           ? styles.kondisiNyalaActive
                           : null,
                       ]}
-                      onPress={() => setKondisi(item.id, "Nyala")}
+                      onPress={() => setKondisi(item.id, "nyala")}
                     >
                       <Icon
                         name="zap"
                         type="feather"
                         size={16}
-                        color={entry?.kondisi === "Nyala" ? "white" : "#20c997"}
+                        color={entry?.kondisi === "nyala" ? "white" : "#20c997"}
                       />
                       <Text
                         style={[
                           styles.kondisiText,
-                          entry?.kondisi === "Nyala"
+                          entry?.kondisi === "nyala"
                             ? styles.kondisiTextActive
                             : { color: "#20c997" },
                         ]}
@@ -418,22 +418,22 @@ export default function LaporanTravoBlowerCreate() {
                     <TouchableOpacity
                       style={[
                         styles.kondisiBtn,
-                        entry?.kondisi === "Mati"
+                        entry?.kondisi === "mati"
                           ? styles.kondisiMatiActive
                           : null,
                       ]}
-                      onPress={() => setKondisi(item.id, "Mati")}
+                      onPress={() => setKondisi(item.id, "mati")}
                     >
                       <Icon
                         name="zap-off"
                         type="feather"
                         size={16}
-                        color={entry?.kondisi === "Mati" ? "white" : "#dc3545"}
+                        color={entry?.kondisi === "mati" ? "white" : "#dc3545"}
                       />
                       <Text
                         style={[
                           styles.kondisiText,
-                          entry?.kondisi === "Mati"
+                          entry?.kondisi === "mati"
                             ? styles.kondisiTextActive
                             : { color: "#dc3545" },
                         ]}

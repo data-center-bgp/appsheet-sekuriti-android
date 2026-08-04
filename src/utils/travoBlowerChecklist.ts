@@ -1,6 +1,14 @@
 import { generateUUID } from "./uuid";
 
-export type Kondisi = "Nyala" | "Mati";
+// Nilai tersimpan di DB (lowercase, sama konvensi dengan tabel lain).
+export type Kondisi = "nyala" | "mati";
+
+/** Label tampilan untuk nilai kondisi. */
+export function kondisiLabel(kondisi: string): string {
+  if (kondisi === "nyala") return "Nyala";
+  if (kondisi === "mati") return "Mati";
+  return kondisi;
+}
 
 export interface MasterItem {
   id: string;
@@ -171,8 +179,8 @@ export function groupChecksBySession(checks: CheckRecord[]): ChecklistSession[] 
       map.set(key, s);
     }
     s.items.push(c);
-    if (c.kondisi === "Nyala") s.nyalaCount++;
-    else if (c.kondisi === "Mati") s.matiCount++;
+    if (c.kondisi === "nyala") s.nyalaCount++;
+    else if (c.kondisi === "mati") s.matiCount++;
     if (c.created_at > s.created_at) s.created_at = c.created_at;
   }
   return Array.from(map.values()).sort((a, b) =>
